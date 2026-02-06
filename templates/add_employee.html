@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Add Employee</title>
+
+    <!-- CSS -->
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/add_employee.css') }}"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Add Employee Details</h1>
+
+      {% with messages = get_flashed_messages(with_categories=true) %} {% if
+      messages %} {% for category, message in messages %}
+      <p class="flash {{ category }}">{{ message }}</p>
+      {% endfor %} {% endif %} {% endwith %}
+
+      <form method="POST" onsubmit="return validateEmployeeForm();">
+        <!-- Staff Details -->
+        <div class="section">
+          <h3>Staff Details</h3>
+          <div class="grid">
+            <div>
+              <label>Staff Code</label>
+              <input
+                name="staff_code"
+                value="{{ generated_staff_code }}"
+                readonly
+              />
+            </div>
+
+            <div>
+              <label>Name</label>
+              <input name="name" id="name" />
+            </div>
+
+            <div>
+              <label for="department">Department</label>
+              <select name="department" id="department">
+                <option value="">Select Department</option>
+
+                <option value="ENGLISH">English</option>
+                <option value="TAMIL">Tamil</option>
+                <option value="ARABIC">Arabic</option>
+                <option value="URDU">Urdu</option>
+                <option value="HINDI">Hindi</option>
+                <option value="FRENCH">French</option>
+
+                <option value="HISTORICAL STUDIES">Historical Studies</option>
+                <option value="ECONOMICS">Economics</option>
+                <option value="SOCIOLOGY">Sociology</option>
+                <option value="COMMERCE">Commerce</option>
+                <option value="CORPORATE SECRETARYSHIP">
+                  Corporate Secretaryship
+                </option>
+
+                <option value="MATHEMATICS">Mathematics</option>
+                <option value="PHYSICS">Physics</option>
+                <option value="CHEMISTRY">Chemistry</option>
+                <option value="BOTANY">Botany</option>
+                <option value="ZOOLOGY">Zoology</option>
+
+                <option value="COMPUTER SCIENCE">Computer Science</option>
+                <option value="COMPUTER APPLICATION">
+                  Computer Application
+                </option>
+                <option value="ISM">ISM</option>
+                <option value="BUSINESS ADMIN">Business Administration</option>
+                <option value="BANK MANAGEMENT">Bank Management</option>
+
+                <option value="BIOTECHNOLOGY">Biotechnology</option>
+                <option value="IT">Information Technology</option>
+
+                <option value="ACCOUNTS FINANCE">Accounts & Finance</option>
+                <option value="CRIMINOLOGY">Criminology & Police Admin</option>
+                <option value="DEFENCE STRATEGIC">Defence & Strategic</option>
+                <option value="ELECTRONIC MEDIA">Electronic Media</option>
+                <option value="PROFESSIONAL ACCOUNTING">
+                  Professional Accounting
+                </option>
+
+                <option value="AI">AI</option>
+                <option value="DS">Data Science</option>
+                <option value="PHYSICAL EDUCATION">Physical Education</option>
+                <option value="LIBRARY">Library</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="designation">Designation</label>
+              <select name="designation" id="designation">
+                <option value="">Select Designation</option>
+
+                <!-- Management -->
+                <option value="PRINCIPAL">Principal</option>
+                <option value="VICE PRINCIPAL">Vice Principal</option>
+
+                <!-- Academic Heads -->
+                <option value="HOD">Head of the Department (HOD)</option>
+                <option value="DEPUTY HOD">Deputy HOD</option>
+
+                <!-- Teaching Staff -->
+                <option value="PROFESSOR">Professor</option>
+                <option value="ASSOCIATE PROFESSOR">Associate Professor</option>
+                <option value="ASSISTANT PROFESSOR">Assistant Professor</option>
+
+                <!-- Technical / Support -->
+                <option value="SYSTEM ASSISTANT">System Assistant</option>
+                <option value="LAB ASSISTANT">Lab Assistant</option>
+                <option value="TECHNICAL ASSISTANT">Technical Assistant</option>
+
+                <!-- Office & Admin -->
+                <option value="OFFICE SUPERINTENDENT">
+                  Office Superintendent
+                </option>
+                <option value="SUPERINTENDENT">Superintendent</option>
+                <option value="ACCOUNTANT">Accountant</option>
+                <option value="CLERK">Clerk</option>
+                <option value="OFFICE ASSISTANT">Office Assistant</option>
+
+                <!-- Library -->
+                <option value="LIBRARIAN">Librarian</option>
+                <option value="ASSISTANT LIBRARIAN">Assistant Librarian</option>
+
+                <!-- Others -->
+                <option value="PE INSTRUCTOR">
+                  Physical Education Instructor
+                </option>
+                <option value="GUEST LECTURER">Guest Lecturer</option>
+                <option value="VISITING FACULTY">Visiting Faculty</option>
+                <option value="RESEARCH ASSISTANT">Research Assistant</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="category">Category</label>
+              <select name="category" id="category">
+                <option value="">Select Category</option>
+                <option value="Teaching">Teaching</option>
+                <option value="Non Teaching">Non Teaching</option>
+              </select>
+            </div>
+
+            <div>
+              <label>Phone Number</label>
+              <input
+                type="text"
+                name="phone"
+                id="phone"
+                placeholder="Enter phone number"
+                maxlength="10"
+              />
+            </div>
+
+            <div>
+              <label>Email</label>
+              <input
+                type="email"
+                name="email"
+                id="email"
+                placeholder="Enter email"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Identification -->
+        <div class="section">
+          <h3>Identification</h3>
+          <div class="grid">
+            <div>
+              <label>Aadhar</label>
+              <input name="aadhar" />
+            </div>
+            <div>
+              <label>PAN</label>
+              <input name="pan" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Dates -->
+        <div class="section">
+          <h3>Dates</h3>
+          <div class="grid">
+            <div>
+              <label>Date of Join</label>
+              <input type="date" name="date_of_join" id="date_of_join" />
+            </div>
+            <div>
+              <label>Date of Birth</label>
+              <input type="date" name="dob" id="dob" />
+            </div>
+            <div>
+                <label>Month of Increment</label>
+                <select name="increment_month" required>
+                    <option value="">Select Month</option>
+                    <option value="January">January</option>
+                    <option value="Febrauary">Febrauary</option>
+                    <option value="March">March</option>
+                    <option value="April">April</option>
+                    <option value="May">May</option>
+                    <option value="June">June</option>
+                    <option value="July">July</option>
+                    <option value="August">August</option>
+                    <option value="September">September</option>
+                    <option value="October">October</option>
+                    <option value="November">November</option>
+                    <option value="December">December</option>
+                </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Accounts -->
+        <div class="section">
+          <h3>Accounts</h3>
+          <div class="grid">
+            <div>
+              <label>Bank Account</label>
+              <input name="bank_account" />
+            </div>
+            <div>
+              <label>PF Account</label>
+              <input name="pf_account" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Earnings -->
+        <div class="section">
+          <h3>Earnings</h3>
+          <div class="grid">
+            <div>
+              <label>Basic</label>
+              <input
+                type="number"
+                name="basic"
+                id="basic"
+                class="allowance"
+                value="0"
+              />
+            </div>
+
+            <div>
+              <label>DA</label>
+              <input type="number" name="da" class="allowance" value="0" />
+            </div>
+
+            <div>
+              <label>HRA</label>
+              <input type="number" name="hra" class="allowance" value="0" />
+            </div>
+
+            <div>
+              <label>CCA</label>
+              <input type="number" name="cca" class="allowance" value="0" />
+            </div>
+
+            <div>
+              <label>IR</label>
+              <input type="number" name="ir" class="allowance" value="0" />
+            </div>
+
+            <div>
+              <label>MA</label>
+              <input type="number" name="ma" class="allowance" value="0" />
+            </div>
+
+            <div>
+              <label>Special Allowance</label>
+              <input
+                type="number"
+                name="special_allowance"
+                class="allowance"
+                value="0"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Deductions -->
+        <div class="section">
+          <h3>Deductions</h3>
+          <div class="grid">
+            <div>
+              <label>ESI</label>
+              <input type="number" name="esi" class="deduction" value="0" />
+            </div>
+            <div>
+              <label>Insurance</label>
+              <input
+                type="number"
+                name="insurance"
+                class="deduction"
+                value="0"
+              />
+            </div>
+            <div>
+              <label>PF</label>
+              <input type="number" name="pf" class="deduction" value="0" />
+            </div>
+            <div>
+              <label>Professional Tax</label>
+
+              <input
+                type="number"
+                name="professional_tax"
+                class="deduction"
+                value="0"
+              />
+            </div>
+            <div>
+              <label>Teacher Guild</label>
+              <input
+                type="number"
+                name="teachers_guild"
+                class="deduction"
+                value="0"
+              />
+            </div>
+            <div>
+              <label>NTSW</label>
+              <input type="number" name="ntsw" class="deduction" value="0" />
+            </div>
+            <div>
+              <label>ICRS</label>
+              <input type="number" name="icrs" class="deduction" value="0" />
+            </div>
+            <div>
+              <label>NCSWP</label>
+              <input type="number" name="ncswp" class="deduction" value="0" />
+            </div>
+            <div>
+              <label>LOP</label>
+              <input type="number" name="lop" class="deduction" value="0" />
+            </div>
+            <div id="ntaField" style="display: none">
+              <label>NTA</label>
+              <input type="number" name="nta" class="deduction" value="0" />
+            </div>
+          </div>
+        </div>
+
+        <!-- <div class="section">
+          <h3>Special Loans</h3>
+
+          <div id="loanContainer"></div>
+
+          <button type="button" onclick="addLoan()">➕ Add Loan</button>
+        </div> -->
+
+        <!-- Salary Summary -->
+        <div class="section">
+          <h3>Salary Summary</h3>
+          <div class="grid">
+            <label>Gross Salary</label>
+            <input
+              name="gross_salary"
+              id="gross_salary"
+              placeholder="Gross Salary"
+              readonly
+            />
+
+            <label>Total Deductions</label>
+            <input
+              name="total_deductions"
+              id="total_deductions"
+              placeholder="Total Deductions"
+              readonly
+            />
+
+            <label>Net Salary</label>
+            <input
+              name="net_salary"
+              id="net_salary"
+              placeholder="Net Salary"
+              readonly
+            />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="submit">Save Employee</button>
+
+          <button><a href="{{ url_for('index') }}">Back</a></button>
+        </div>
+      </form>
+    </div>
+    <script>
+      function calculateSalary() {
+        let allowanceTotal = 0;
+        document.querySelectorAll(".allowance").forEach((input) => {
+          allowanceTotal += Number(input.value) || 0;
+        });
+
+        let deductionTotal = 0;
+        document.querySelectorAll(".deduction").forEach((input) => {
+          deductionTotal += Number(input.value) || 0;
+        });
+
+        let grossSalary = allowanceTotal;
+        let netPay = grossSalary - deductionTotal;
+
+        document.getElementById("gross_salary").value = grossSalary.toFixed(2);
+        document.getElementById("total_deductions").value =
+          deductionTotal.toFixed(2);
+        document.getElementById("net_salary").value = netPay.toFixed(2);
+      }
+
+      document.addEventListener("input", calculateSalary);
+
+      let loanCount = 0;
+
+      function addLoan() {
+        loanCount++;
+
+        const loanDiv = document.createElement("div");
+        loanDiv.className = "loan-box";
+        loanDiv.innerHTML = `
+      <hr />
+      <h4>Special Loan ${loanCount}</h4>
+
+      <label>Loan Amount</label>
+      <input type="number"
+            name="loan_amount_${loanCount}"
+            id="loanAmount${loanCount}"
+            oninput="calculateInstallment(${loanCount})">
+
+      <label>No. of Months</label>
+      <input type="number"
+            name="loan_months_${loanCount}"
+            id="loanMonths${loanCount}"
+            oninput="calculateInstallment(${loanCount})">
+
+      <label>Monthly Installment</label>
+      <input type="number"
+             name="special_loan_${loanCount}"
+             id="loanInstallment${loanCount}"
+             class="deduction"
+             readonly
+             value="0">
+
+      <button type="button" onclick="removeLoan(this)">❌ Remove</button>
+    `;
+
+        document.getElementById("loanContainer").appendChild(loanDiv);
+      }
+
+      function calculateInstallment(id) {
+        const amount =
+          Number(document.getElementById("loanAmount" + id).value) || 0;
+        const months =
+          Number(document.getElementById("loanMonths" + id).value) || 1;
+
+        const installment = amount / months;
+
+        document.getElementById("loanInstallment" + id).value =
+          installment.toFixed(2);
+
+        calculateSalary();
+      }
+
+      function removeLoan(btn) {
+        btn.parentElement.remove();
+        calculateSalary();
+      }
+
+      const categorySelect = document.getElementById("category");
+      const ntaField = document.getElementById("ntaField");
+      const ntaInput = ntaField.querySelector("input");
+
+      categorySelect.addEventListener("change", function () {
+        if (this.value === "Non Teaching") {
+          ntaField.style.display = "block";
+        } else {
+          ntaField.style.display = "none";
+          ntaInput.value = 0; // reset value when hidden
+          calculateSalary(); // recalc salary
+        }
+      });
+
+    //   function validateDates() {
+    //     const dobInput = document.getElementById("dob");
+    //     const dojInput = document.getElementById("date_of_join");
+
+    //     if (!dobInput.value || !dojInput.value) return true;
+
+    //     const dob = new Date(dobInput.value);
+    //     const doj = new Date(dojInput.value);
+
+    //     // DOB must be before DOJ
+    //     if (dob >= doj) {
+    //       alert("❌ Date of Birth must be before Date of Joining");
+    //       dobInput.value = "";
+    //       return false;
+    //     }
+
+    //     // Age >= 18
+    //     const ageDiff = doj.getFullYear() - dob.getFullYear();
+    //     const monthDiff = doj.getMonth() - dob.getMonth();
+    //     const age =
+    //       monthDiff < 0 || (monthDiff === 0 && doj.getDate() < dob.getDate())
+    //         ? ageDiff - 1
+    //         : ageDiff;
+
+    //     if (age < 18) {
+    //       alert("❌ Employee must be at least 18 years old");
+    //       dobInput.value = "";
+    //       return false;
+    //     }
+    //     return true;
+    //   }
+
+    //   document.getElementById("dob").addEventListener("change", validateDates);
+    //   document
+    //     .getElementById("date_of_join")
+    //     .addEventListener("change", validateDates);
+
+    //   document.getElementById("phone").addEventListener("input", function () {
+    //     this.value = this.value.replace(/\D/g, ""); // only digits
+    //   });
+
+    //   document.querySelector("form").addEventListener("submit", function (e) {
+    //     const phone = document.getElementById("phone").value;
+    //     if (phone && phone.length !== 10) {
+    //       alert("❌ Phone number must be exactly 10 digits");
+    //       e.preventDefault();
+    //     }
+    //   });
+
+    //   document.querySelectorAll("input[type='number']").forEach((input) => {
+    //     input.addEventListener("input", function () {
+    //       if (this.value < 0) {
+    //         alert("❌ Negative values are not allowed");
+    //         this.value = 0;
+    //       }
+    //     });
+    //   });
+
+    //   function validateEmployeeForm() {
+    //     // Name
+    //     const name = document.getElementById("name").value.trim();
+    //     if (name === "") {
+    //       alert("❌ Name is mandatory");
+    //       return false;
+    //     }
+
+    //     // Department
+    //     const dept = document.getElementById("department").value;
+    //     if (dept === "") {
+    //       alert("❌ Please select Department");
+    //       return false;
+    //     }
+
+    //     // Department
+    //     const designation = document.getElementById("designation").value;
+    //     if (designation === "") {
+    //       alert("❌ Please select Designation");
+    //       return false;
+    //     }
+
+    //     // Category
+    //     const category = document.getElementById("category").value;
+    //     if (designation === "") {
+    //       alert("❌ Please select Category");
+    //       return false;
+    //     }
+
+    //     // Date of Join
+    //     const doj = document.getElementById("date_of_join").value;
+    //     if (doj === "") {
+    //       alert("❌ Enter Date of Join");
+    //       return false;
+    //     }
+
+    //     // Date of Join
+    //     const dob = document.getElementById("dob").value;
+    //     if (dob === "") {
+    //       alert("❌ Enter Date of Birth");
+    //       return false;
+    //     }
+
+    //     // Basic salary
+    //     const basic = document.getElementById("basic").value;
+    //     if (basic === "" || Number(basic) <= 0) {
+    //       alert("❌ Basic salary must be greater than 0");
+    //       return false;
+    //     }
+
+    //     // Phone
+    //     const phone = document.getElementById("phone").value.trim();
+    //     const phoneRegex = /^[0-9]{10}$/;
+    //     if (!phoneRegex.test(phone)) {
+    //       alert("❌ Phone number must be exactly 10 digits");
+    //       return false;
+    //     }
+
+    //     // Email
+    //     const email = document.getElementById("email").value.trim();
+    //     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    //     if (!emailRegex.test(email)) {
+    //       alert("❌ Enter a valid email address");
+    //       return false;
+    //     }
+
+    //     return true; // ✅ allow submit
+    //   }
+    
+    </script>
+  </body>
+</html>
+
+<!-- SELECT * FROM employee_loans WHERE staff_code= AND status='open' -->

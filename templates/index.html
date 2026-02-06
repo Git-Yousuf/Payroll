@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+
+    <title>Payroll System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Font Awesome -->
+    <script
+      src="https://kit.fontawesome.com/65eed8ca1e.js"
+      crossorigin="anonymous"
+    ></script>
+
+    <!-- CSS -->
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+  </head>
+  <body>
+    <div class="layout">
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <h2>Payroll</h2>
+        <a class="active" onclick="showSection('view')">View Employee</a>
+        <a onclick="showSection('update')">Update Employee</a>
+        <a onclick="showSection('paybill')">Pay Bill</a>
+        <a onclick="showSection('bank')">Bank Statement</a>
+        <a onclick="showSection('payslip')">Payslip</a>
+      </div>
+
+      <!-- Right Content -->
+      <div class="content">
+        <!-- VIEW EMPLOYEE -->
+        <div id="view" class="section active">
+          <div class="header">
+            <h1>Employee List</h1>
+            <div
+              style="
+                margin: 15px 0;
+                display: flex;
+                gap: 15px;
+                align-items: center;
+              "
+            >
+              <a href="/add_employee" class="add-btn">
+                <i class="fa-solid fa-user-plus"></i> Add Employee
+              </a>
+            </div>
+          </div>
+
+          <div style="margin: 15px 0; display: flex; justify-content: space-between; align-items: center;">
+            <input
+              type="text"
+              id="searchInput"
+              placeholder="Search by Name / Staff Code / Department / Designation / Category"
+              onkeyup="searchEmployee()"
+              style="width: 50%; padding: 10px; font-size: 15px"
+            />
+            <a href="/download_employee_template" class="add-btn">
+              <i class="fa-solid fa-file-excel"></i> Download Template
+            </a>
+
+            <form
+              action="/upload_employee_excel"
+              method="POST"
+              enctype="multipart/form-data"
+            >
+              <input type="file" name="excel_file" accept=".xlsx" required />
+              <button type="submit" class="add-btn">
+                <i class="fa-solid fa-upload"></i> Upload Excel
+              </button>
+            </form>
+          </div>
+
+          <table id="employeeTable">
+            <tr>
+              <th>Staff Code</th>
+              <th>Name</th>
+              <th>Department</th>
+              <th>Designation</th>
+              <th>Details</th>
+              <th>Action</th>
+            </tr>
+
+            {% for e in employees %}
+            <tr>
+              <td>{{ e.staff_code }}</td>
+              <td>{{ e.name }}</td>
+              <td>{{ e.department }}</td>
+              <td>{{ e.designation }}</td>
+              <td>
+                <i
+                  class="fa-solid fa-circle-info"
+                  style="cursor: pointer"
+                  onclick="openModal(
+                  '{{ e.staff_code }}',
+                  '{{ e.date_of_join }}',
+                  '{{ e.dob }}',
+                  '{{ e.category }}',
+                  '{{ e.aadhar }}',
+                  '{{ e.pan }}',
+                  '{{ e.bank_account }}',
+                  '{{ e.pf_account }}',
+                  '{{ e.basic }}',
+                  '{{ e.da }}',
+                  '{{ e.hra }}',
+                  '{{ e.cca }}',
+                  '{{ e.ir }}',
+                  '{{ e.ma }}',
+                  '{{ e.special_allowance }}',
+                  '{{ e.esi }}',
+                  '{{ e.insurance }}',
+                  '{{ e.pf }}',
+                  '{{ e.professional_tax }}',
+                  '{{ e.teachers_guild }}',
+                  '{{ e.ntsw }}',
+                  '{{ e.icrs }}',
+                  '{{ e.ncswp }}',
+                  '{{ e.nta }}',
+                  '{{ e.gross_salary }}',
+                  '{{ e.total_deductions }}',
+                  '{{ e.net_salary }}',
+                  '{{ e.phone }}',
+                  '{{ e.email }}'
+                )"
+                ></i>
+              </td>
+              <td class="actions">
+                <form
+                  method="POST"
+                  action="{{ url_for('delete_employee', staff_code=e.staff_code) }}"
+                  onsubmit="return confirm('Delete this employee?');"
+                >
+                  <button class="btn-delete">
+                    <i class="fa-solid fa-trash"></i> Delete
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </table>
+        </div>
+
+        <!-- UPDATE -->
+        <div id="update" class="section">
+          <h1>Update Employee</h1>
+          <p>Employee update form inga.</p>
+        </div>
+
+        <!-- PAY BILL -->
+        <div id="paybill" class="section">
+          <h1>Pay Bill</h1>
+          <p>Salary calculation & bill generation.</p>
+        </div>
+
+        <!-- BANK -->
+        <div id="bank" class="section">
+          <h1>Bank Statement</h1>
+          <p>Bank export / statement details.</p>
+        </div>
+
+        <!-- PAYSLIP -->
+        <div id="payslip" class="section">
+          <h1>Payslip</h1>
+          <p>Payslip PDF download / preview.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Employee Details Modal -->
+    <div id="detailsModal" class="modal">
+      <div class="modal-content modal-lg">
+        <span class="close-btn" onclick="closeModal()">&times;</span>
+
+        <!-- Personal / Account Details -->
+        <div class="personal-section">
+          <h2><i class="fa-solid fa-user"></i> Personal</h2>
+          <p><strong>Aadhar:</strong> <span id="modalAadhar"></span></p>
+          <p><strong>PAN:</strong> <span id="modalPan"></span></p>
+          <p><strong>Bank Account:</strong> <span id="modalBank"></span></p>
+          <p><strong>PF Account:</strong> <span id="modalPFAccount"></span></p>
+          <p><strong>Date of Join:</strong> <span id="modalDOJ"></span></p>
+          <p><strong>Date of Birth:</strong> <span id="modalDOB"></span></p>
+          <p><strong>Category:</strong> <span id="modalCategory"></span></p>
+          <p><strong>Phone:</strong> <span id="modalPhone"></span></p>
+          <p><strong>Email:</strong> <span id="modalEmail"></span></p>
+        </div>
+
+        <!-- Earnings -->
+        <div class="Earnings-section">
+          <h2><i class="fa-solid fa-money-bill"></i> Earnings</h2>
+          <p><strong>Basic:</strong> <span id="modalBasic"></span></p>
+          <p><strong>DA:</strong> <span id="modalDA"></span></p>
+          <p><strong>HRA:</strong> <span id="modalHRA"></span></p>
+          <p><strong>CCA:</strong> <span id="modalCCA"></span></p>
+          <p><strong>IR:</strong> <span id="modalIR"></span></p>
+          <p><strong>MA:</strong> <span id="modalMA"></span></p>
+          <p>
+            <strong>Special Allowance:</strong>
+            <span id="modalSpecialAllowance"></span>
+          </p>
+        </div>
+
+        <!-- Deductions -->
+        <div class="deduction-section">
+          <h2><i class="fa-solid fa-minus-circle"></i> Deductions</h2>
+          <p><strong>ESI:</strong> <span id="modalESI"></span></p>
+          <p><strong>Insurance:</strong> <span id="modalInsurance"></span></p>
+          <p><strong>PF:</strong> <span id="modalPF"></span></p>
+          <p>
+            <strong>Professional Tax:</strong>
+            <span id="modalProfessionalTax"></span>
+          </p>
+          <p>
+            <strong>Teachers Guild:</strong>
+            <span id="modalTeachersGuild"></span>
+          </p>
+          <p><strong>NTSW:</strong> <span id="modalNTSW"></span></p>
+          <p><strong>ICRS:</strong> <span id="modalICRS"></span></p>
+          <p><strong>NCSWP:</strong> <span id="modalNCSWP"></span></p>
+          <p><strong>NTA:</strong> <span id="modalNTA"></span></p>
+        </div>
+
+        <!-- Loans -->
+        <div class="loan-section">
+          <h2><i class="fa-solid fa-hand-holding-dollar"></i> Loans</h2>
+          <div id="loanDetails"></div>
+        </div>
+
+        <!-- Salary Summary -->
+        <div class="salary-section">
+          <h2><i class="fa-solid fa-minus-circle"></i> Salary Summary</h2>
+          <p>
+            <strong>Gross Salary:</strong> <span id="modalGrossSalary"></span>
+          </p>
+          <p>
+            <strong>Total Deductions:</strong>
+            <span id="modalTotalDeductions"></span>
+          </p>
+          <p><strong>Net Salary:</strong> <span id="modalNetSalary"></span></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- JS -->
+    <script>
+      function showSection(id) {
+        document.querySelectorAll(".section").forEach((sec) => {
+          sec.classList.remove("active");
+        });
+
+        document.querySelectorAll(".sidebar a").forEach((link) => {
+          link.classList.remove("active");
+        });
+
+        document.getElementById(id).classList.add("active");
+        event.target.classList.add("active");
+      }
+      function openModal(
+        staffCode,
+        dateOfJoin,
+        dob,
+        category,
+        aadhar,
+        pan,
+        bank,
+        pfAccount,
+        basic,
+        da,
+        hra,
+        cca,
+        ir,
+        ma,
+        specialAllowance,
+        esi,
+        insurance,
+        pf,
+        professionalTax,
+        teachersGuild,
+        ntsw,
+        icrs,
+        ncswp,
+        nta,
+        gross_salary,
+        total_deductions,
+        net_salary,
+        phone,
+        email,
+      ) {
+        // Personal
+        document.getElementById("modalAadhar").innerText = aadhar || "-";
+        document.getElementById("modalPan").innerText = pan || "-";
+        document.getElementById("modalBank").innerText = bank || "-";
+        document.getElementById("modalPFAccount").innerText = pfAccount || "-";
+        document.getElementById("modalDOJ").innerText = dateOfJoin || "-";
+        document.getElementById("modalDOB").innerText = dob || "-";
+        document.getElementById("modalCategory").innerText = category || "-";
+        document.getElementById("modalPhone").innerText = phone || "-";
+        document.getElementById("modalEmail").innerText = email || "-";
+
+        // Earnings
+        document.getElementById("modalBasic").innerText = basic || 0;
+        document.getElementById("modalDA").innerText = da || 0;
+        document.getElementById("modalHRA").innerText = hra || 0;
+        document.getElementById("modalCCA").innerText = cca || 0;
+        document.getElementById("modalIR").innerText = ir || 0;
+        document.getElementById("modalMA").innerText = ma || 0;
+        document.getElementById("modalSpecialAllowance").innerText =
+          specialAllowance || 0;
+
+        // Deductions
+        document.getElementById("modalESI").innerText = esi || 0;
+        document.getElementById("modalInsurance").innerText = insurance || 0;
+        document.getElementById("modalPF").innerText = pf || 0;
+        document.getElementById("modalProfessionalTax").innerText =
+          professionalTax || 0;
+        document.getElementById("modalTeachersGuild").innerText =
+          teachersGuild || 0;
+        document.getElementById("modalNTSW").innerText = ntsw || 0;
+        document.getElementById("modalICRS").innerText = icrs || 0;
+        document.getElementById("modalNCSWP").innerText = ncswp || 0;
+        document.getElementById("modalNTA").innerText = nta || 0;
+
+        // Salary summary
+        document.getElementById("modalGrossSalary").innerText =
+          gross_salary || 0;
+        document.getElementById("modalTotalDeductions").innerText =
+          total_deductions || 0;
+        document.getElementById("modalNetSalary").innerText = net_salary || 0;
+
+        // 🔥 FETCH LOANS
+        // fetch(`/get_loans/${staffCode}`)
+        //   .then((res) => res.json())
+        //   .then((data) => {
+        //     const loanDiv = document.getElementById("loanDetails");
+        //     loanDiv.innerHTML = "";
+
+        //     if (data.loans.length === 0) {
+        //       loanDiv.innerHTML = "<p>No Active Loans</p>";
+        //       return;
+        //     }
+
+        //     data.loans.forEach((loan) => {
+        //       loanDiv.innerHTML += `
+        //   <div class="loan-box">
+        //     <strong>${loan.loan_name}</strong><br>
+        //     Amount: ₹${loan.loan_amount}<br>
+        //     Months: ${loan.total_months}<br>
+        //     EMI: ₹${loan.monthly_installment}<br>
+        //     Remaining: ₹${loan.remaining_amount}
+        //     <hr>
+        //   </div>
+        // `;
+        //     });
+        //   });
+
+        document.getElementById("detailsModal").style.display = "block";
+      }
+
+      function closeModal() {
+        document.getElementById("detailsModal").style.display = "none";
+      }
+
+      window.onclick = function (event) {
+        const modal = document.getElementById("detailsModal");
+        if (event.target === modal) modal.style.display = "none";
+      };
+
+      function searchEmployee() {
+        const input = document
+          .getElementById("searchInput")
+          .value.toLowerCase();
+        const table = document.getElementById("employeeTable");
+        const rows = table.getElementsByTagName("tr");
+
+        for (let i = 1; i < rows.length; i++) {
+          const cells = rows[i].getElementsByTagName("td");
+
+          if (!cells.length) continue;
+
+          const staffCode = cells[0].innerText.toLowerCase();
+          const name = cells[1].innerText.toLowerCase();
+          const department = cells[2].innerText.toLowerCase();
+          const designation = cells[3].innerText.toLowerCase();
+
+          // category modal-la iruku, so safest option:
+          const rowText = rows[i].innerText.toLowerCase();
+
+          if (
+            staffCode.includes(input) ||
+            name.includes(input) ||
+            department.includes(input) ||
+            designation.includes(input) ||
+            rowText.includes(input)
+          ) {
+            rows[i].style.display = "";
+          } else {
+            rows[i].style.display = "none";
+          }
+        }
+      }
+    </script>
+  </body>
+</html>
