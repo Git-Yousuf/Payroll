@@ -47,10 +47,24 @@
               <a href="/add_employee" class="add-btn">
                 <i class="fa-solid fa-user-plus"></i> Add Employee
               </a>
+              <!-- <button class="btn-delete" onclick="deleteSelected()">
+                <i class="fa-solid fa-trash"></i> Delete Selected
+              </button> -->
+
+              <button class="btn-delete" onclick="openBulkDeleteModal()">
+                <i class="fa-solid fa-trash"></i> Delete Selected
+              </button>
             </div>
           </div>
 
-          <div style="margin: 15px 0; display: flex; justify-content: space-between; align-items: center;">
+          <div
+            style="
+              margin: 15px 0;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            "
+          >
             <input
               type="text"
               id="searchInput"
@@ -76,6 +90,13 @@
 
           <table id="employeeTable">
             <tr>
+              <th>
+                <input
+                  type="checkbox"
+                  id="selectAll"
+                  onclick="toggleAll(this)"
+                />
+              </th>
               <th>Staff Code</th>
               <th>Name</th>
               <th>Department</th>
@@ -86,79 +107,170 @@
 
             {% for e in employees %}
             <tr>
+              <td>
+                <input
+                  type="checkbox"
+                  class="rowCheckbox"
+                  value="{{ e.staff_code }}"
+                />
+              </td>
               <td>{{ e.staff_code }}</td>
               <td>{{ e.name }}</td>
               <td>{{ e.department }}</td>
               <td>{{ e.designation }}</td>
+
               <td>
                 <i
                   class="fa-solid fa-circle-info"
                   style="cursor: pointer"
                   onclick="openModal(
-                  '{{ e.staff_code }}',
-                  '{{ e.date_of_join }}',
-                  '{{ e.dob }}',
-                  '{{ e.category }}',
-                  '{{ e.aadhar }}',
-                  '{{ e.pan }}',
-                  '{{ e.bank_account }}',
-                  '{{ e.pf_account }}',
-                  '{{ e.basic }}',
-                  '{{ e.da }}',
-                  '{{ e.hra }}',
-                  '{{ e.cca }}',
-                  '{{ e.ir }}',
-                  '{{ e.ma }}',
-                  '{{ e.special_allowance }}',
-                  '{{ e.esi }}',
-                  '{{ e.insurance }}',
-                  '{{ e.pf }}',
-                  '{{ e.professional_tax }}',
-                  '{{ e.teachers_guild }}',
-                  '{{ e.ntsw }}',
-                  '{{ e.icrs }}',
-                  '{{ e.ncswp }}',
-                  '{{ e.nta }}',
-                  '{{ e.gross_salary }}',
-                  '{{ e.total_deductions }}',
-                  '{{ e.net_salary }}',
-                  '{{ e.phone }}',
-                  '{{ e.email }}'
-                )"
+                    '{{ e.staff_code }}',
+                    '{{ e.date_of_join }}',
+                    '{{ e.dob }}',
+                    '{{ e.category }}',
+                    '{{ e.aadhar }}',
+                    '{{ e.pan }}',
+                    '{{ e.bank_account }}',
+                    '{{ e.pf_account }}',
+                    '{{ e.basic }}',
+                    '{{ e.da }}',
+                    '{{ e.hra }}',
+                    '{{ e.cca }}',
+                    '{{ e.ir }}',
+                    '{{ e.ma }}',
+                    '{{ e.special_allowance }}',
+                    '{{ e.esi }}',
+                    '{{ e.insurance }}',
+                    '{{ e.pf }}',
+                    '{{ e.professional_tax }}',
+                    '{{ e.teachers_guild }}',
+                    '{{ e.ntsw }}',
+                    '{{ e.icrs }}',
+                    '{{ e.ncswp }}',
+                    '{{ e.nta }}',
+                    '{{ e.gross_salary }}',
+                    '{{ e.total_deductions }}',
+                    '{{ e.net_salary }}',
+                    '{{ e.phone }}',
+                    '{{ e.email }}'
+                  )"
                 ></i>
               </td>
+
               <td class="actions">
-                <form
+                <!-- <form
                   method="POST"
                   action="{{ url_for('delete_employee', staff_code=e.staff_code) }}"
                   onsubmit="return confirm('Delete this employee?');"
                 >
                   <button class="btn-delete">
-                    <i class="fa-solid fa-trash"></i> Delete
+                    <i class="fa-solid fa-trash"></i>
                   </button>
-                </form>
+                </form> -->
+                <!-- <form
+                  method="POST"
+                  action="{{ url_for('delete_employee', staff_code=e.staff_code) }}"
+                  onsubmit="return confirmDelete(this);"
+                >
+                  <input type="hidden" name="delete_type" />
+                  <input type="hidden" name="delete_reason" />
+
+                  <button class="btn-delete">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </form> -->
+                <button
+                  class="btn-delete"
+                  onclick="openDeleteModal('{{ e.staff_code }}')"
+                >
+                  <i class="fa-solid fa-trash"></i>
+                </button>
               </td>
             </tr>
+
             {% endfor %}
           </table>
         </div>
 
-        <!-- UPDATE -->
+        <!-- UPDATE EMPLOYEE -->
         <div id="update" class="section">
           <h1>Update Employee</h1>
-          <p>Employee update form inga.</p>
+          <input
+            type="text"
+            id="search"
+            placeholder="Search by Staff Code, Name, Department, Designation"
+            style="width: 50%; padding: 10px; font-size: 15px"
+          />
+
+          <table
+            id="results-table"
+            border="1"
+            style="width: 100%; margin-top: 10px"
+          >
+            <thead>
+              <tr>
+                <th>Staff Code</th>
+                <th>Name</th>
+                <th>Department</th>
+                <th>Designation</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="results-body">
+              <!-- Search results appear here -->
+            </tbody>
+          </table>
         </div>
 
-        <!-- PAY BILL -->
+        <!-- PAYBILL -->
         <div id="paybill" class="section">
-          <h1>Pay Bill</h1>
-          <p>Salary calculation & bill generation.</p>
+          <h2 class="paybill-title">📅 Paybill Calendar</h2>
+
+          <div class="year-select">
+            <label>Year:</label>
+            <select id="pay_year_paybill">
+              <option>2026</option>
+              <option>2027</option>
+            </select>
+          </div>
+
+          <div class="calendar-grid" id="monthGridPaybill">
+            <!-- Months generated by JS -->
+          </div>
+
+          <div class="paybill-footer">
+            <span id="paybill_status"></span>
+            <button id="paybill_btn" onclick="downloadPayBill()" disabled>
+              Generate Paybill
+            </button>
+          </div>
         </div>
 
         <!-- BANK -->
         <div id="bank" class="section">
-          <h1>Bank Statement</h1>
-          <p>Bank export / statement details.</p>
+          <h2 class="bank-statement-title">Bank Statement</h2>
+
+          <div class="year-select">
+            <label>Year:</label>
+            <select id="pay_year_bank">
+              <option>2026</option>
+              <option>2027</option>
+            </select>
+          </div>
+
+          <div class="calendar-grid" id="monthGridBank">
+            <!-- Months generated by JS -->
+          </div>
+
+          <div class="bank-statement-footer">
+            <span id="bank_statement_status"></span>
+            <button id="bank_statement_btn" onclick="downloadBankStatement()">
+              Download Bank Statement (EXCEL)
+            </button>
+            <button onclick="downloadBankStatementPDF()">
+              Download Bank Statement (PDF)
+            </button>
+          </div>
         </div>
 
         <!-- PAYSLIP -->
@@ -224,10 +336,25 @@
         </div>
 
         <!-- Loans -->
-        <div class="loan-section">
+        <!-- <div class="loan-section">
           <h2><i class="fa-solid fa-hand-holding-dollar"></i> Loans</h2>
-          <div id="loanDetails"></div>
-        </div>
+          <div class="card">
+            <h3>Loans</h3>
+            <table width="100%" id="loanTable" border="1">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Amount</th>
+                  <th>Months</th>
+                  <th>EMI</th>
+                  <th>Remaining</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div> -->
 
         <!-- Salary Summary -->
         <div class="salary-section">
@@ -244,8 +371,212 @@
       </div>
     </div>
 
+    <!-- UPDATE MODAL -->
+    <div id="updateModal" class="modal">
+      <div class="modal-content modal-xl">
+        <span class="close-btn" onclick="closeUpdateModal()">&times;</span>
+
+        <h2 class="modal-title">Update Employee</h2>
+
+        <form id="updateForm">
+          <!-- PERSONAL -->
+          <div class="card">
+            <h3>Personal Details</h3>
+            <div class="grid">
+              <input type="hidden" id="u_staff_code" />
+
+              <div>
+                <label>Name</label>
+                <input id="u_name" />
+              </div>
+
+              <div>
+                <label>Department</label>
+                <input id="u_department" />
+              </div>
+
+              <div>
+                <label>Designation</label>
+                <input id="u_designation" />
+              </div>
+
+              <div>
+                <label>Category</label>
+                <input id="u_category" />
+              </div>
+
+              <div>
+                <label>Aadhar</label>
+                <input id="u_aadhar" />
+              </div>
+
+              <div>
+                <label>PAN</label>
+                <input id="u_pan" />
+              </div>
+              <div>
+                <label>Phone</label>
+                <input type="text" id="u_phone" />
+              </div>
+
+              <div>
+                <label>Email</label>
+                <input type="email" id="u_email" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Dates -->
+          <div class="card">
+            <h3>Dates</h3>
+            <div class="grid">
+              <div>
+                <label>Date of Join</label>
+                <input type="date" id="u_date_of_join" />
+              </div>
+              <div>
+                <label>Date of Birth</label>
+                <input type="date" id="u_dob" />
+              </div>
+              <div>
+                <label>Increment Month</label>
+                <input type="text" id="u_increment_month" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Accounts -->
+          <div class="card">
+            <h3>Accounts</h3>
+            <div class="grid">
+              <div>
+                <label>Bank Account</label>
+                <input type="text" id="u_bank_account" />
+              </div>
+              <div>
+                <label>PF Account</label>
+                <input type="text" id="u_pf_account" />
+              </div>
+            </div>
+          </div>
+
+          <!-- EARNINGS -->
+          <div class="card">
+            <h3>Earnings</h3>
+            <div class="grid">
+              <div><label>Basic</label><input id="u_basic" /></div>
+              <div><label>DA</label><input id="u_da" /></div>
+              <div><label>HRA</label><input id="u_hra" /></div>
+              <div><label>CCA</label><input id="u_cca" /></div>
+              <div><label>IR</label><input id="u_ir" /></div>
+              <div><label>MA</label><input id="u_ma" /></div>
+              <div>
+                <label>Special Allowance</label
+                ><input id="u_special_allowance" />
+              </div>
+            </div>
+          </div>
+
+          <!-- DEDUCTIONS -->
+          <div class="card">
+            <h3>Deductions</h3>
+            <div class="grid">
+              <div><label>ESI</label><input id="u_esi" /></div>
+              <div><label>PF</label><input id="u_pf" /></div>
+              <div>
+                <label>Professional Tax</label><input id="u_professional_tax" />
+              </div>
+              <div>
+                <label>Teachers Guild</label><input id="u_teachers_guild" />
+              </div>
+              <div><label>NTSW</label><input id="u_ntsw" /></div>
+              <div>
+                <label>ICRS</label>
+                <input type="number" id="u_icrs" />
+              </div>
+              <div>
+                <label>NCSWP</label>
+                <input type="number" id="u_ncswp" />
+              </div>
+              <div>
+                <label>LOP</label>
+                <input type="number" id="u_lop" />
+              </div>
+              <div><label>Insurance</label><input id="u_insurance" /></div>
+              <div><label>NTA</label><input id="u_nta" /></div>
+            </div>
+          </div>
+
+          <!-- Salary -->
+          <div class="card">
+            <h3>Salary</h3>
+            <div class="grid">
+              <div>
+                <label>Gross Salary</label>
+                <input type="number" id="u_gross_salary" />
+              </div>
+              <div>
+                <label>Total Deductions</label>
+                <input type="number" id="u_total_deductions" />
+              </div>
+              <div>
+                <label>Net Pay</label>
+                <input type="number" id="u_net_salary" />
+              </div>
+            </div>
+          </div>
+
+          <!-- ACTION -->
+          <div class="modal-actions">
+            <button type="button" class="btn-primary" onclick="saveEmployee()">
+              💾 Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- DELETE REASON MODAL -->
+    <div id="deleteModal" class="modal">
+      <div class="modal-content">
+        <h3>Delete Employee</h3>
+
+        <form id="deleteForm" method="POST">
+          <input type="hidden" id="bulk_staff_codes" name="bulk_staff_codes" />
+
+          <label>Reason</label>
+          <select
+            name="delete_type"
+            id="delete_type"
+            required
+            onchange="toggleReasonBox()"
+          >
+            <option value="">-- Select --</option>
+            <option value="Retired">Retired</option>
+            <option value="Resigned">Resigned</option>
+            <option value="Other">Other</option>
+          </select>
+
+          <div id="otherReasonBox" style="display: none; margin-top: 10px">
+            <label>Reason (mandatory)</label>
+            <textarea
+              name="delete_reason"
+              id="delete_reason"
+              placeholder="Enter reason"
+            ></textarea>
+          </div>
+
+          <div style="margin-top: 15px">
+            <button type="submit" class="btn-delete">Confirm Delete</button>
+            <button type="button" onclick="closeDeleteModal()">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- JS -->
     <script>
+      // NAVIGATION FROM SIDE BAR
       function showSection(id) {
         document.querySelectorAll(".section").forEach((sec) => {
           sec.classList.remove("active");
@@ -258,6 +589,8 @@
         document.getElementById(id).classList.add("active");
         event.target.classList.add("active");
       }
+
+      // OPEN DETAILS IN VIEW SECTION
       function openModal(
         staffCode,
         dateOfJoin,
@@ -359,6 +692,7 @@
         document.getElementById("detailsModal").style.display = "block";
       }
 
+      // CLOSE THE DETAILS IN VIEW SECTION
       function closeModal() {
         document.getElementById("detailsModal").style.display = "none";
       }
@@ -368,6 +702,7 @@
         if (event.target === modal) modal.style.display = "none";
       };
 
+      // SEARCH EMPLOYEE IN VIEW SECTION
       function searchEmployee() {
         const input = document
           .getElementById("searchInput")
@@ -400,6 +735,518 @@
             rows[i].style.display = "none";
           }
         }
+      }
+
+      // SEARCH EMPLOYEE IN UPDATE SECTION
+      document.getElementById("search").addEventListener("keyup", function () {
+        let query = this.value.trim();
+        const tbody = document.getElementById("results-body");
+
+        if (query === "") {
+          tbody.innerHTML = ""; // clear table if search is empty
+          return;
+        }
+
+        fetch(`/search_employee?query=${query}`)
+          .then((response) => response.json())
+          .then((data) => {
+            tbody.innerHTML = ""; // clear previous results
+
+            data.forEach((emp) => {
+              let row = document.createElement("tr");
+              row.id = `row-${emp.staff_code}`;
+              row.innerHTML = `
+                    <td>${emp.staff_code}</td>
+                    <td class="name">${emp.name}</td>
+                    <td class="department">${emp.department}</td>
+                    <td class="designation">${emp.designation}</td>
+                    <td>
+                    <button class="btn-update"
+                        onclick="openUpdateModal('${emp.staff_code}')">
+                        Update Details
+                    </button>
+                    </td>
+
+                `;
+              tbody.appendChild(row);
+            });
+          });
+      });
+
+      // OPEN DETAILS IN UPDATE SECTION
+      function openUpdateModal(staff_code) {
+        fetch(`/get_employee/${staff_code}`)
+          .then((res) => res.json())
+          .then((emp) => {
+            console.log(emp);
+            document.getElementById("u_staff_code").value = emp.staff_code;
+            document.getElementById("u_name").value = emp.name;
+            document.getElementById("u_department").value = emp.department;
+            document.getElementById("u_designation").value = emp.designation;
+            document.getElementById("u_category").value = emp.category;
+            document.getElementById("u_aadhar").value = emp.aadhar;
+            document.getElementById("u_phone").value = emp.phone;
+            document.getElementById("u_email").value = emp.email;
+            document.getElementById("u_pan").value = emp.pan;
+
+            document.getElementById("u_date_of_join").value =
+              formatDateForInput(emp.date_of_join);
+
+            document.getElementById("u_dob").value = formatDateForInput(
+              emp.dob,
+            );
+
+            document.getElementById("u_increment_month").value =
+              emp.increment_month;
+            document.getElementById("u_bank_account").value = emp.bank_account;
+            document.getElementById("u_pf_account").value = emp.pf_account;
+            document.getElementById("u_basic").value = emp.basic;
+            document.getElementById("u_da").value = emp.da;
+            document.getElementById("u_hra").value = emp.hra;
+            document.getElementById("u_cca").value = emp.cca;
+            document.getElementById("u_ir").value = emp.ir;
+            document.getElementById("u_ma").value = emp.ma;
+            document.getElementById("u_special_allowance").value =
+              emp.special_allowance;
+            document.getElementById("u_esi").value = emp.esi;
+            document.getElementById("u_pf").value = emp.pf;
+            document.getElementById("u_professional_tax").value =
+              emp.professional_tax;
+            document.getElementById("u_teachers_guild").value =
+              emp.teachers_guild;
+            document.getElementById("u_ntsw").value = emp.ntsw;
+            document.getElementById("u_lop").value = emp.lop;
+            document.getElementById("u_nta").value = emp.nta;
+            document.getElementById("u_insurance").value = emp.insurance;
+            document.getElementById("u_gross_salary").value = emp.gross_salary;
+            document.getElementById("u_total_deductions").value =
+              emp.total_deductions;
+            document.getElementById("u_net_salary").value = emp.net_salary;
+
+            document.getElementById("updateModal").style.display = "block";
+          });
+      }
+
+      function formatDateForInput(dateStr) {
+        if (!dateStr) return "";
+        const d = new Date(dateStr);
+        return d.toISOString().split("T")[0]; // YYYY-MM-DD
+      }
+
+      // // CLOSE DETAILS IN UPDATE SECTION
+      function closeUpdateModal() {
+        document.getElementById("updateModal").style.display = "none";
+      }
+
+      // // SAVE THE EDITED DETAILS TO THE TABLE
+      function saveEmployee() {
+        const data = {
+          staff_code: document.getElementById("u_staff_code").value,
+          name: document.getElementById("u_name").value,
+          department: document.getElementById("u_department").value,
+          designation: document.getElementById("u_designation").value,
+          category: document.getElementById("u_category").value,
+
+          aadhar: document.getElementById("u_aadhar").value,
+          pan: document.getElementById("u_pan").value,
+          bank_account: document.getElementById("u_bank_account").value,
+          pf_account: document.getElementById("u_pf_account").value,
+
+          basic: document.getElementById("u_basic").value || 0,
+          hra: document.getElementById("u_hra").value || 0,
+          da: document.getElementById("u_da").value || 0,
+          cca: document.getElementById("u_cca").value || 0,
+          ir: document.getElementById("u_ir").value || 0,
+          ma: document.getElementById("u_ma").value || 0,
+          special_allowance:
+            document.getElementById("u_special_allowance").value || 0,
+
+          esi: document.getElementById("u_esi").value || 0,
+          insurance: document.getElementById("u_insurance").value || 0,
+          pf: document.getElementById("u_pf").value || 0,
+          professional_tax:
+            document.getElementById("u_professional_tax").value || 0,
+          teachers_guild:
+            document.getElementById("u_teachers_guild").value || 0,
+          ntsw: document.getElementById("u_ntsw").value || 0,
+          icrs: document.getElementById("u_icrs").value || 0,
+          ncswp: document.getElementById("u_ncswp").value || 0,
+          nta: document.getElementById("u_nta").value || 0,
+        };
+
+        fetch("/update_employee_modal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        })
+          .then((res) => res.json())
+          .then((resp) => {
+            alert(resp.message);
+            closeUpdateModal();
+            location.reload();
+          });
+      }
+
+      // TO CHECK ALL THE CHECKBOXES AT ONCE
+      function toggleAll(source) {
+        const checkboxes = document.querySelectorAll(".rowCheckbox");
+        checkboxes.forEach((cb) => (cb.checked = source.checked));
+      }
+
+      // DELETE THE SELECTED DATA
+      function deleteSelected() {
+        const selected = Array.from(
+          document.querySelectorAll(".rowCheckbox:checked"),
+        ).map((cb) => cb.value);
+
+        if (selected.length === 0) {
+          alert("Select at least one employee ❗");
+          return;
+        }
+
+        if (!confirm(`Delete ${selected.length} employee(s)?`)) return;
+
+        fetch("/bulk_delete_employee", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ staff_codes: selected }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            alert(data.message);
+            location.reload();
+          });
+      }
+
+      const months = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+      ];
+
+      let generatedBills = [];
+      let selectedMonth = null;
+
+      // fetch("/paybill_status")
+      //   .then((res) => res.json())
+      //   .then((data) => {
+      //     generatedBills = data;
+      //     renderCalendar();
+      //   });
+
+      fetch("/paybill_status")
+        .then((res) => res.json())
+        .then((data) => {
+          generatedBills = data || [];
+          renderPaybillCalendar();
+          renderBankCalendar();
+        });
+
+      // document
+      //   .getElementById("pay_year")
+      //   .addEventListener("change", renderCalendar);
+
+      function renderCalendar() {
+        const year = document.getElementById("pay_year").value;
+        const grid = document.getElementById("monthGrid");
+        grid.innerHTML = "";
+
+        months.forEach((month) => {
+          const exists = generatedBills.some(
+            (b) => b.pay_month === month && b.pay_year == year,
+          );
+
+          const div = document.createElement("div");
+          div.className =
+            "month-card " + (exists ? "month-generated" : "month-pending");
+          div.innerHTML = `
+            ${month}<br/>
+            <small>${exists ? "Generated ✅" : "Not Generated"}</small>
+          `;
+
+          if (!exists) {
+            div.onclick = () => selectMonth(div, month);
+          }
+
+          grid.appendChild(div);
+        });
+      }
+
+      function renderPaybillCalendar() {
+        const year = document.getElementById("pay_year_paybill").value;
+        const grid = document.getElementById("monthGridPaybill");
+        grid.innerHTML = "";
+
+        months.forEach((month) => {
+          const exists = generatedBills.some(
+            (b) => b.pay_month === month && b.pay_year == year,
+          );
+
+          const div = document.createElement("div");
+          div.className =
+            "month-card " + (exists ? "month-generated" : "month-pending");
+
+          div.innerHTML = `
+            ${month}<br/>
+            <small>${exists ? "Generated ✅" : "Not Generated"}</small>
+          `;
+
+          if (!exists) {
+            div.onclick = () => selectMonth(div, month);
+          }
+
+          grid.appendChild(div);
+        });
+
+        selectedMonth = null;
+
+        const btn = document.getElementById("paybill_btn");
+        if (btn) {
+          btn.disabled = true;
+          btn.style.opacity = "0.5";
+          btn.style.cursor = "not-allowed";
+        }
+
+        document.getElementById("paybill_status").innerText = "";
+      }
+
+      // function renderBankCalendar() {
+      //   const grid = document.getElementById("monthGridBank");
+      //   grid.innerHTML = "";
+
+      //   months.forEach((month) => {
+      //     const div = document.createElement("div");
+      //     div.className = "month-card month-pending";
+      //     div.innerText = month;
+
+      //     div.onclick = () => selectMonth(div, month);
+
+      //     grid.appendChild(div);
+      //   });
+      // }
+
+      // function selectMonth(el, month) {
+      //   document
+      //     .querySelectorAll(".month-card")
+      //     .forEach((m) => m.classList.remove("month-selected"));
+
+      //   el.classList.add("month-selected");
+      //   selectedMonth = month;
+
+      //   // document.getElementById("paybill_status").innerText =
+      //   //   `🆕 Ready to generate paybill for ${month}`;
+      //   // document.getElementById("paybill_btn").disabled = false;
+
+      //   const status = document.getElementById("paybill_status");
+      //   if (status) {
+      //     status.innerText = `🆕 Ready to generate paybill for ${month}`;
+      //   }
+
+      // }
+
+      // function downloadPayBill() {
+      //   const year = document.getElementById("pay_year").value;
+      //   if (!selectedMonth) return;
+
+      //   window.open(`/generate_paybill/${selectedMonth}/${year}`, "_blank");
+      // }
+
+      function renderBankCalendar() {
+        const grid = document.getElementById("monthGridBank");
+        grid.innerHTML = "";
+
+        months.forEach((month) => {
+          const div = document.createElement("div");
+          div.className = "month-card month-pending";
+          div.innerText = month;
+
+          div.onclick = () => {
+            document
+              .querySelectorAll("#monthGridBank .month-card")
+              .forEach((m) => m.classList.remove("month-selected"));
+
+            div.classList.add("month-selected");
+
+            document.getElementById("bank_statement_btn_pdf").disabled = false;
+          };
+
+          grid.appendChild(div);
+        });
+      }
+
+      function selectMonth(el, month) {
+        // remove previous selection
+        document
+          .querySelectorAll(".month-card")
+          .forEach((m) => m.classList.remove("month-selected"));
+
+        // select current
+        el.classList.add("month-selected");
+        selectedMonth = month;
+
+        // status text
+        const status = document.getElementById("paybill_status");
+        if (status) {
+          status.innerText = `🆕 Ready to generate paybill for ${month}`;
+        }
+
+        // 🔥 ENABLE BUTTON (THIS WAS MISSING)
+        const btn = document.getElementById("paybill_btn");
+        if (btn) {
+          btn.disabled = false;
+          btn.style.opacity = "1";
+          btn.style.cursor = "pointer";
+        }
+      }
+
+      function downloadPayBill() {
+        const year = document.getElementById("pay_year_paybill").value;
+        if (!selectedMonth) return;
+
+        window.open(`/generate_paybill/${selectedMonth}/${year}`, "_blank");
+      }
+
+      function toggleLoanForm() {
+        const form = document.getElementById("loanForm");
+        form.style.display = form.style.display === "none" ? "block" : "none";
+      }
+
+      // function downloadBankStatement() {
+      //   const year = document.getElementById("pay_year").value;
+
+      //   // get selected month
+      //   const selected = document.querySelector(".month-selected");
+      //   if (!selected) {
+      //     alert("Select a month first ❗");
+      //     return;
+      //   }
+
+      //   const month = selected.innerText.split("\n")[0];
+
+      //   window.open(`/download_bank_statement/${month}/${year}`, "_blank");
+      // }
+
+      function downloadBankStatement() {
+        const year = document.getElementById("pay_year_bank").value;
+
+        const selected = document.querySelector(
+          "#monthGridBank .month-selected",
+        );
+        if (!selected) {
+          alert("Select a month first ❗");
+          return;
+        }
+
+        const month = selected.innerText.trim();
+        window.open(`/download_bank_statement/${month}/${year}`, "_blank");
+      }
+
+      function downloadBankStatementPDF() {
+        const year = document.getElementById("pay_year_bank").value;
+
+        const selected = document.querySelector(
+          "#monthGridBank .month-selected",
+        );
+        if (!selected) {
+          alert("Select month da 😄");
+          return;
+        }
+
+        const month = selected.innerText.trim();
+
+        window.open(`/download_bank_statement_pdf/${month}/${year}`, "_blank");
+      }
+
+      function confirmDelete(form) {
+        const type = prompt("Reason for deletion:\nType 'Retired' or 'Other'");
+
+        if (!type) return false;
+
+        let finalType = type.toLowerCase();
+
+        if (finalType !== "retired" && finalType !== "other") {
+          alert("Please type exactly: Retired or Other");
+          return false;
+        }
+
+        let reason = "Retired";
+
+        if (finalType === "other") {
+          reason = prompt("Please enter the reason (sentence):");
+          if (!reason || reason.trim().length < 5) {
+            alert("Reason is mandatory for 'Other'");
+            return false;
+          }
+        }
+
+        form.querySelector("input[name='delete_type']").value =
+          finalType === "retired" ? "Retired" : "Other";
+
+        form.querySelector("input[name='delete_reason']").value = reason;
+
+        return confirm("Are you sure you want to delete this employee?");
+      }
+
+      let currentStaffCode = null;
+
+      function openDeleteModal(staffCode) {
+        currentStaffCode = staffCode;
+        document.getElementById("deleteForm").action =
+          `/delete_employee/${staffCode}`;
+        document.getElementById("deleteModal").style.display = "block";
+      }
+
+      function closeDeleteModal() {
+        document.getElementById("deleteModal").style.display = "none";
+      }
+
+      function toggleReasonBox() {
+        const type = document.getElementById("delete_type").value;
+        document.getElementById("otherReasonBox").style.display =
+          type === "Other" ? "block" : "none";
+      }
+
+      let deleteMode = "single"; // single | bulk
+
+      function openBulkDeleteModal() {
+        const selected = Array.from(
+          document.querySelectorAll(".rowCheckbox:checked"),
+        ).map((cb) => cb.value);
+
+        if (selected.length === 0) {
+          alert("Select at least one employee ❗");
+          return;
+        }
+
+        deleteMode = "bulk";
+
+        document.getElementById("bulk_staff_codes").value =
+          JSON.stringify(selected);
+
+        document.getElementById("deleteForm").action = "/bulk_delete_employee";
+
+        document.getElementById("deleteModal").style.display = "block";
+      }
+
+      function openDeleteModal(staffCode) {
+        deleteMode = "single";
+
+        document.getElementById("bulk_staff_codes").value = "";
+        document.getElementById("deleteForm").action =
+          `/delete_employee/${staffCode}`;
+
+        document.getElementById("deleteModal").style.display = "block";
       }
     </script>
   </body>
