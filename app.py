@@ -13,6 +13,9 @@ from reportlab.platypus import (
 )
 from reportlab.lib.enums import TA_CENTER
 import json
+from fpdf import FPDF
+from flask_mail import Mail, Message
+import os
 
 
 app = Flask(__name__)
@@ -24,6 +27,15 @@ db = mysql.connector.connect(
     password="root",
     database="payroll"
 )
+
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'mohammedyousuf432003@gmail.com'
+app.config['MAIL_PASSWORD'] = 'gweo mxde oqqv vlbi'
+
+mail = Mail(app)
+
 
 # ---------- STAFF CODE GENERATOR ----------
 def generate_staff_code(cursor, department, date_of_join):
@@ -289,7 +301,6 @@ def delete_employee(staff_code):
 
     return redirect(url_for("index"))
 
-
 # ---------- SEARCH EMPLOYEE ----------
 @app.route('/search_employee')
 def search_employee():
@@ -450,7 +461,6 @@ def bulk_delete_employee():
         cursor.close()
 
     return redirect(url_for("index"))
-
 
 # ---------- GENERATE PAYBILL ----------
 @app.route("/generate_paybill/<month>/<int:year>")
@@ -891,6 +901,303 @@ def download_bank_statement_pdf(month, year):
         mimetype="application/pdf"
     )
 
+# ---------------- GENERATE PAYSLIPS (ALL STAFF) ----------------
+@app.route("/generate_payslips")
+def generate_payslips():
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT
+            staff_code,
+            name,
+            department,
+            designation,
+            basic,
+            (hra + da + cca + ir + ma + special_allowance) AS allowance,
+            (esi + pf + professional_tax + insurance) AS deduction,
+            net_salary
+        FROM employees
+    """)
+
+    data = cursor.fetchall()
+    cursor.close()
+
+    return jsonify(data)
+
+# ---------------- SENDING PAYSLIP ( INDIVIDUAL ) ----------------
+@app.route("/send_payslip/<staff_code>")
+def send_payslip(staff_code):
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM employees WHERE staff_code=%s", (staff_code,))
+    emp = cursor.fetchone()
+    cursor.close()
+
+    if not emp:
+        return "Employee not found", 404
+
+    # Generate PDF (reuse preview logic or separate function)
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=11)
+
+    pdf.cell(200, 10, "PAYSLIP", ln=True, align="C")
+    pdf.ln(5)
+    pdf.cell(200, 8, f"Staff Code : {emp['staff_code']}", ln=True)
+    pdf.cell(200, 8, f"Name       : {emp['name']}", ln=True)
+    pdf.cell(200, 8, f"Net Salary : Rs. {emp['net_salary']}", ln=True)
+
+    file_path = f"Payslip_{staff_code}.pdf"
+    pdf.output(file_path)
+
+    msg = Message(
+        subject="Your Monthly Payslip",
+        sender="mohammedyousuf432003@gmail.com",
+        recipients=[emp["email"]]
+    )
+    msg.body = f"""
+        Dear {emp['name']},
+
+        Please find attached your payslip.
+
+        Regards,
+        Payroll Team
+        """
+    with open(file_path, "rb") as f:
+        msg.attach(file_path, "application/pdf", f.read())
+
+    mail.send(msg)
+    return "Payslip sent successfully"
+
+@app.route("/preview_payslip_pdf/<staff_code>")
+def preview_payslip_pdf(staff_code):
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT
+            staff_code,
+            name,
+            department,
+            designation,
+            basic,
+            (hra + da + cca + ir + ma + special_allowance) AS allowance,
+            (esi + pf + professional_tax + insurance) AS deduction,
+            net_salary
+        FROM employees
+        WHERE staff_code=%s
+    """, (staff_code,))
+    emp = cursor.fetchone()
+    cursor.close()
+
+    if not emp:
+        return "Employee not found", 404
+
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=11)
+
+    pdf.cell(200, 10, "PAYSLIP", ln=True, align="C")
+    pdf.ln(5)
+    pdf.cell(200, 8, f"Staff Code : {emp['staff_code']}", ln=True)
+    pdf.cell(200, 8, f"Name       : {emp['name']}", ln=True)
+    pdf.cell(200, 8, f"Department : {emp['department']}", ln=True)
+    pdf.cell(200, 8, f"Designation: {emp['designation']}", ln=True)
+
+    pdf.ln(5)
+    pdf.cell(200, 8, f"Basic      : Rs. {emp['basic']}", ln=True)
+    pdf.cell(200, 8, f"Allowance  : Rs. {emp['allowance']}", ln=True)
+    pdf.cell(200, 8, f"Deduction  : Rs. {emp['deduction']}", ln=True)
+    pdf.ln(3)
+    pdf.cell(200, 10, f"NET SALARY : Rs. {emp['net_salary']}", ln=True)
+
+    file_name = f"Payslip_{staff_code}.pdf"
+    pdf.output(file_name)
+
+    return send_file(file_name, mimetype="application/pdf", as_attachment=False)
+
+@app.route("/download_all_payslips")
+def download_all_payslips():
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT
+            staff_code, name, department, designation,
+            basic,
+            (hra + da + cca + ir + ma + special_allowance) AS allowance,
+            (esi + pf + professional_tax + insurance) AS deduction,
+            net_salary
+        FROM employees
+    """)
+    employees = cursor.fetchall()
+    cursor.close()
+
+    if not employees:
+        return "No employees found", 404
+
+    pdf = FPDF()
+    pdf.set_font("Arial", size=11)
+
+    for emp in employees:
+        pdf.add_page()
+
+        pdf.cell(200, 10, "PAYSLIP", ln=True, align="C")
+        pdf.ln(5)
+
+        pdf.cell(200, 8, f"Staff Code : {emp['staff_code']}", ln=True)
+        pdf.cell(200, 8, f"Name       : {emp['name']}", ln=True)
+        pdf.cell(200, 8, f"Department : {emp['department']}", ln=True)
+        pdf.cell(200, 8, f"Designation: {emp['designation']}", ln=True)
+
+        pdf.ln(5)
+        pdf.cell(200, 8, f"Basic      : Rs. {emp['basic']}", ln=True)
+        pdf.cell(200, 8, f"Allowance  : Rs. {emp['allowance']}", ln=True)
+        pdf.cell(200, 8, f"Deduction  : Rs. {emp['deduction']}", ln=True)
+
+        pdf.ln(3)
+        pdf.cell(200, 10, f"NET SALARY : Rs. {emp['net_salary']}", ln=True)
+
+    file_name = "All_Employees_Payslips.pdf"
+    pdf.output(file_name)
+
+    return send_file(file_name, as_attachment=True)
+
+# @app.route("/send_bulk_payslips", methods=["POST"])
+# def send_bulk_payslips():
+#     try:
+#         cursor = db.cursor(dictionary=True)
+#         cursor.execute("""
+#             SELECT staff_code, name, email, net_salary
+#             FROM employees
+#             WHERE email IS NOT NULL
+#         """)
+#         employees = cursor.fetchall()
+#         cursor.close()
+
+#         if not employees:
+#             return jsonify({"message": "No employees with email"}), 400
+
+#         for emp in employees:
+#             msg = Message(
+#                 subject="Monthly Payslip",
+#                 sender=app.config["MAIL_USERNAME"],
+#                 recipients=[emp["email"]]
+#             )
+
+#             msg.body = f"""
+#                 Dear {emp['name']},
+
+#                 Your monthly payslip has been generated.
+
+#                 Net Salary : Rs. {emp['net_salary']}
+
+#                 Regards,
+#                 Payroll Team
+#                             """
+
+#             mail.send(msg)
+
+#         return jsonify({"message": "Payslips sent to all employees successfully ✅"})
+
+#     except Exception as e:
+#         print("MAIL ERROR:", e)
+#         return jsonify({"message": str(e)}), 500
+
+@app.route("/send_bulk_payslips", methods=["POST"])
+def send_bulk_payslips():
+    try:
+        cursor = db.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT
+                staff_code,
+                name,
+                email,
+                department,
+                designation,
+                basic,
+                (hra + da + cca + ir + ma + special_allowance) AS allowance,
+                (esi + pf + professional_tax + insurance) AS deduction,
+                net_salary
+            FROM employees
+            WHERE email IS NOT NULL
+        """)
+        employees = cursor.fetchall()
+        cursor.close()
+
+        if not employees:
+            return jsonify({"message": "No employees with email"}), 400
+
+        sent_count = 0
+
+        for emp in employees:
+            pdf_path = create_payslip_pdf(emp)
+
+            msg = Message(
+                subject="Monthly Payslip",
+                sender=app.config["MAIL_USERNAME"],
+                recipients=[emp["email"]]
+            )
+
+            msg.body = f"""
+                Dear {emp['name']},
+
+                Please find attached your monthly payslip.
+
+                Net Salary : Rs. {emp['net_salary']}
+
+                Regards,
+                Payroll Team
+                            """
+
+            with open(pdf_path, "rb") as f:
+                msg.attach(
+                    filename=os.path.basename(pdf_path),
+                    content_type="application/pdf",
+                    data=f.read()
+                )
+
+            mail.send(msg)
+            sent_count += 1
+
+            os.remove(pdf_path)  # 🔥 cleanup
+
+        return jsonify({
+            "message": f"Payslips sent successfully to {sent_count} employees ✅"
+        })
+
+    except Exception as e:
+        print("MAIL ERROR:", e)
+        return jsonify({"message": str(e)}), 500
+
+
+def create_payslip_pdf(emp):
+    folder = "temp_payslips"
+    os.makedirs(folder, exist_ok=True)
+
+    file_path = f"{folder}/Payslip_{emp['staff_code']}.pdf"
+
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=11)
+
+    pdf.cell(200, 10, "PAYSLIP", ln=True, align="C")
+    pdf.ln(5)
+
+    pdf.cell(200, 8, f"Staff Code : {emp['staff_code']}", ln=True)
+    pdf.cell(200, 8, f"Name       : {emp['name']}", ln=True)
+    pdf.cell(200, 8, f"Department : {emp['department']}", ln=True)
+    pdf.cell(200, 8, f"Designation: {emp['designation']}", ln=True)
+
+    pdf.ln(5)
+    pdf.cell(200, 8, f"Basic      : Rs. {emp['basic']}", ln=True)
+    pdf.cell(200, 8, f"Allowance  : Rs. {emp['allowance']}", ln=True)
+    pdf.cell(200, 8, f"Deduction  : Rs. {emp['deduction']}", ln=True)
+
+    pdf.ln(3)
+    pdf.cell(200, 10, f"NET SALARY : Rs. {emp['net_salary']}", ln=True)
+
+    pdf.output(file_path)
+
+    return file_path
+
 
 if __name__ == "__main__":
     app.run(debug=True)
+

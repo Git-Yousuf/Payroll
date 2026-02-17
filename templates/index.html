@@ -274,9 +274,42 @@
         </div>
 
         <!-- PAYSLIP -->
-        <div id="payslip" class="section">
+        <!-- <div id="payslip" class="section">
           <h1>Payslip</h1>
           <p>Payslip PDF download / preview.</p>
+        </div> -->
+
+        <!-- PAYSLIP -->
+        <div id="payslip" class="section">
+          <h2>📄 Payslip Generation</h2>
+
+          <button onclick="generatePayslips()" class="btn-primary">
+            Generate Payslips (Preview Table)
+          </button>
+
+          <button onclick="downloadAllPayslips()" class="btn-primary">
+            ⬇️ Download All Payslips (PDF)
+          </button>
+
+          <button class="btn-primary" onclick="sendBulkMail()">
+            📧 Send Payslips to All Employees
+          </button>
+
+          <br /><br />
+
+          <table class="payslip-table">
+            <thead>
+              <tr>
+                <th>Staff ID</th>
+                <th>Name</th>
+                <th>Department</th>
+                <th>Designation</th>
+                <th>Preview</th>
+                <th>Email</th>
+              </tr>
+            </thead>
+            <tbody id="payslipBody"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -938,13 +971,6 @@
       let generatedBills = [];
       let selectedMonth = null;
 
-      // fetch("/paybill_status")
-      //   .then((res) => res.json())
-      //   .then((data) => {
-      //     generatedBills = data;
-      //     renderCalendar();
-      //   });
-
       fetch("/paybill_status")
         .then((res) => res.json())
         .then((data) => {
@@ -952,10 +978,6 @@
           renderPaybillCalendar();
           renderBankCalendar();
         });
-
-      // document
-      //   .getElementById("pay_year")
-      //   .addEventListener("change", renderCalendar);
 
       function renderCalendar() {
         const year = document.getElementById("pay_year").value;
@@ -1021,47 +1043,6 @@
         document.getElementById("paybill_status").innerText = "";
       }
 
-      // function renderBankCalendar() {
-      //   const grid = document.getElementById("monthGridBank");
-      //   grid.innerHTML = "";
-
-      //   months.forEach((month) => {
-      //     const div = document.createElement("div");
-      //     div.className = "month-card month-pending";
-      //     div.innerText = month;
-
-      //     div.onclick = () => selectMonth(div, month);
-
-      //     grid.appendChild(div);
-      //   });
-      // }
-
-      // function selectMonth(el, month) {
-      //   document
-      //     .querySelectorAll(".month-card")
-      //     .forEach((m) => m.classList.remove("month-selected"));
-
-      //   el.classList.add("month-selected");
-      //   selectedMonth = month;
-
-      //   // document.getElementById("paybill_status").innerText =
-      //   //   `🆕 Ready to generate paybill for ${month}`;
-      //   // document.getElementById("paybill_btn").disabled = false;
-
-      //   const status = document.getElementById("paybill_status");
-      //   if (status) {
-      //     status.innerText = `🆕 Ready to generate paybill for ${month}`;
-      //   }
-
-      // }
-
-      // function downloadPayBill() {
-      //   const year = document.getElementById("pay_year").value;
-      //   if (!selectedMonth) return;
-
-      //   window.open(`/generate_paybill/${selectedMonth}/${year}`, "_blank");
-      // }
-
       function renderBankCalendar() {
         const grid = document.getElementById("monthGridBank");
         grid.innerHTML = "";
@@ -1121,21 +1102,6 @@
         const form = document.getElementById("loanForm");
         form.style.display = form.style.display === "none" ? "block" : "none";
       }
-
-      // function downloadBankStatement() {
-      //   const year = document.getElementById("pay_year").value;
-
-      //   // get selected month
-      //   const selected = document.querySelector(".month-selected");
-      //   if (!selected) {
-      //     alert("Select a month first ❗");
-      //     return;
-      //   }
-
-      //   const month = selected.innerText.split("\n")[0];
-
-      //   window.open(`/download_bank_statement/${month}/${year}`, "_blank");
-      // }
 
       function downloadBankStatement() {
         const year = document.getElementById("pay_year_bank").value;
@@ -1247,6 +1213,49 @@
           `/delete_employee/${staffCode}`;
 
         document.getElementById("deleteModal").style.display = "block";
+      }
+
+      function generatePayslips() {
+        fetch("/generate_payslips")
+          .then((res) => res.json())
+          .then((data) => {
+            const tbody = document.getElementById("payslipBody");
+            tbody.innerHTML = "";
+
+            data.forEach((emp) => {
+              tbody.innerHTML += `
+          <tr>
+            <td>${emp.staff_code}</td>
+            <td>${emp.name}</td>
+            <td>${emp.department}</td>
+            <td>${emp.designation}</td>
+            <td>
+              <a href="/preview_payslip_pdf/${emp.staff_code}" target="_blank">
+                <button>Preview</button>
+              </a>
+            </td>
+            <td>
+                <a href="/send_payslip/${emp.staff_code}" target="_blank">
+                  <button>Send</button>
+                </a>
+            </td>
+          </tr>
+        `;
+            });
+          });
+      }
+
+      function downloadAllPayslips() {
+        window.location.href = "/download_all_payslips";
+      }
+
+      function sendBulkMail() {
+        if (!confirm("Send individual payslips to all employees?")) return;
+
+        fetch("/send_bulk_payslips", { method: "POST" })
+          .then((res) => res.json())
+          .then((data) => alert(data.message))
+          .catch(() => alert("Error sending mails"));
       }
     </script>
   </body>
