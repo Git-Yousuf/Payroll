@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, redirect, url_for, flash, sen
 import mysql.connector
 from datetime import datetime
 from openpyxl import Workbook, load_workbook
+from openpyxl.comments import Comment
+from openpyxl.styles import Font, PatternFill
 import io
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
@@ -173,8 +175,31 @@ def download_employee_template():
 
     wb = Workbook()
     ws = wb.active
+
+    # ---------- INSERT INSTRUCTION ROW ----------
+    ws.insert_rows(1)
+    ws["A1"] = (
+        "IMPORTANT: Name / Designation / Department mandatory | "
+        "Text fields → Enter proper words | "
+        "Number fields → Enter 0 if not applicable | "
+        "Date format → YYYY-MM-DD | "
+        "Aadhaar must be unique"
+    )
+
+    # Style instruction row
+    ws["A1"].font = Font(bold=True)
+    ws["A1"].fill = PatternFill(start_color="FFFF99", fill_type="solid")
+
+    # Merge instruction across all columns
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(columns))
+
+    # ---------- ADD HEADER ROW ----------
     ws.append(columns)
 
+    # Freeze top row (so instruction stays visible)
+    ws.freeze_panes = "A3"
+
+    # ---------- SAVE FILE ----------
     stream = io.BytesIO()
     wb.save(stream)
     stream.seek(0)
@@ -186,10 +211,10 @@ def download_employee_template():
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-# ---------- UPLOAD EMPLOYEE EXCEL ----------
 @app.route("/upload_employee_excel", methods=["POST"])
 def upload_employee_excel():
     file = request.files.get("excel_file")
+
     if not file:
         flash("No file selected ❌", "error")
         return redirect(url_for("index"))
@@ -198,54 +223,107 @@ def upload_employee_excel():
     ws = wb.active
     rows = list(ws.iter_rows(values_only=True))
 
-    headers = [h for h in rows[0] if h]
-    data_rows = rows[1:]
+    if not rows or len(rows) < 2:
+        flash("Invalid or empty Excel file ❌", "error")
+        return redirect(url_for("index"))
+
+    # ---------- AUTO DETECT HEADER ROW ----------
+    header_index = None
+    for i, row in enumerate(rows):
+        if not row:
+            continue
+        normalized = [str(c).strip().lower() for c in row if c]
+        if "name" in normalized:
+            header_index = i
+            break
+
+    if header_index is None:
+        flash("Header row not found ❌", "error")
+        return redirect(url_for("index"))
+
+    headers = [str(h).strip().lower() for h in rows[header_index] if h]
+    data_rows = rows[header_index + 1:]
+
+    # ---------- REQUIRED COLUMNS ----------
+    required_columns = ["name", "designation", "department", "aadhar"]
+    for col in required_columns:
+        if col not in headers:
+            flash(f"Missing required column: {col} ❌", "error")
+            return redirect(url_for("index"))
 
     cursor = db.cursor(dictionary=True)
 
-    for row in data_rows:
+    inserted_count = 0
+    skipped_count = 0
+
+    for excel_row_no, row in enumerate(data_rows, start=header_index + 2):
+
+        # Skip empty rows
         if all(v is None for v in row):
             continue
 
         data = dict(zip(headers, row))
-        doj = data["date_of_join"]
+
+        # ---------- MANDATORY FIELD CHECK ----------
+        if not data.get("name") or not data.get("designation") or not data.get("department"):
+            skipped_count += 1
+            continue
+
+        # ---------- AADHAAR VALIDATION ----------
+        aadhar = str(data.get("aadhar")).strip()
+
+        if not aadhar.isdigit() or len(aadhar) != 12:
+            skipped_count += 1
+            continue
+
+        # ---------- DUPLICATE CHECK ----------
+        cursor.execute(
+            "SELECT id FROM employees WHERE aadhar = %s",
+            (aadhar,)
+        )
+        if cursor.fetchone():
+            skipped_count += 1
+            continue
+
+        # ---------- DATE HANDLING ----------
+        doj = data.get("date_of_join")
         if isinstance(doj, str):
-            doj = datetime.strptime(doj, "%Y-%m-%d").date()
+            try:
+                doj = datetime.strptime(doj, "%Y-%m-%d").date()
+            except ValueError:
+                skipped_count += 1
+                continue
 
-        staff_code = generate_staff_code(cursor, data["department"], doj)
+        # ---------- GENERATE STAFF CODE ----------
+        staff_code = generate_staff_code(
+            cursor,
+            data.get("department"),
+            doj
+        )
 
+        # ---------- INSERT ----------
         cols = ["staff_code"] + list(data.keys())
         vals = [staff_code] + list(data.values())
-
         placeholders = ",".join(["%s"] * len(vals))
+
         cursor.execute(
             f"INSERT INTO employees ({','.join(cols)}) VALUES ({placeholders})",
             vals
         )
 
+        inserted_count += 1
+
     db.commit()
     cursor.close()
-    flash("Employees uploaded successfully ✅", "success")
+
+    flash(
+        f"{inserted_count} employees added ✅ | {skipped_count} skipped ⚠️",
+        "success"
+    )
+
     return redirect(url_for("index"))
 
-# ---------- DELETE EMPLOYEE ----------
-# @app.route("/delete_employee/<staff_code>", methods=["POST"])
-# def delete_employee(staff_code):
-#     cursor = db.cursor()
-#     try:
-#         cursor.execute(
-#             "DELETE FROM employees WHERE staff_code = %s",
-#             (staff_code,)
-#         )
-#         db.commit()
-#         flash(f"Employee {staff_code} deleted successfully 🗑️", "success")
-#     except Exception as e:
-#         flash(str(e), "error")
-#     finally:
-#         cursor.close()
-
-#     return redirect(url_for("index"))
-
+# -------------- DELETE EMPLOYEE -------------
 @app.route("/delete_employee/<staff_code>", methods=["POST"])
 def delete_employee(staff_code):
     delete_type = request.form.get("delete_type")
@@ -332,6 +410,7 @@ def get_employee(staff_code):
     cursor.close()
     return jsonify(emp)
 
+# ---------- UPDATE EMPLOYEE ----------
 @app.route("/update_employee_modal", methods=["POST"])
 def update_employee_modal():
     d = request.json
@@ -380,27 +459,6 @@ def update_employee_modal():
     return jsonify({"message": "Employee updated successfully ✅"})
 
 # ---------- SELECTED DELETE ----------
-# @app.route("/bulk_delete_employee", methods=["POST"])
-# def bulk_delete_employee():
-#     data = request.get_json()
-#     staff_codes = data.get("staff_codes")
-
-#     if not staff_codes:
-#         return jsonify({"message": "No employees selected"}), 400
-
-#     cursor = db.cursor()
-#     format_strings = ",".join(["%s"] * len(staff_codes))
-
-#     cursor.execute(
-#         f"DELETE FROM employees WHERE staff_code IN ({format_strings})",
-#         tuple(staff_codes)
-#     )
-
-#     db.commit()
-#     cursor.close()
-
-#     return jsonify({"message": "Selected employees deleted successfully ✅"})
-
 @app.route("/bulk_delete_employee", methods=["POST"])
 def bulk_delete_employee():
     delete_type = request.form.get("delete_type")
@@ -570,7 +628,7 @@ def generate_paybill_pdf(data, month, year):
 
     # ---------------- HEADER ----------------
     try:
-        logo = Image("static/collegelogo.png", 50, 50)
+        logo = Image("static/logo.png", 50, 50)
     except:
         logo = ""
 
@@ -924,7 +982,113 @@ def generate_payslips():
 
     return jsonify(data)
 
-# ---------------- SENDING PAYSLIP ( INDIVIDUAL ) ----------------
+def generate_payslip_page(emp, pdf):
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+
+    # LOGO
+    pdf.image("static/logo.png", x=10, y=8, w=25)
+
+    # HEADER
+    pdf.set_font("Arial", "B", 14)
+    pdf.cell(0, 8, "THE NEW COLLEGE (AUTONOMOUS)", ln=True, align="C")
+    pdf.set_font("Arial", "", 11)
+    pdf.cell(0, 6, "Royapettah, Chennai - 600014", ln=True, align="C")
+
+    month_year = datetime.now().strftime("%B %Y")
+    pdf.ln(3)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 8, f"PAYSLIP - {month_year}", ln=True, align="C")
+
+    pdf.ln(5)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(5)
+
+    # EMPLOYEE DETAILS
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(40, 8, "Staff Code")
+    pdf.cell(60, 8, f": {emp['staff_code']}")
+    pdf.cell(40, 8, "Department")
+    pdf.cell(0, 8, f": {emp['department']}", ln=True)
+
+    pdf.cell(40, 8, "Name")
+    pdf.cell(60, 8, f": {emp['name']}")
+    pdf.cell(40, 8, "Designation")
+    pdf.cell(0, 8, f": {emp['designation']}", ln=True)
+
+    pdf.ln(5)
+
+    # TABLE HEADER
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(95, 8, "EARNINGS", 1, 0, "C")
+    pdf.cell(95, 8, "DEDUCTIONS", 1, 1, "C")
+
+    pdf.set_font("Arial", "", 10)
+
+    earnings = [
+        ("Basic", emp["basic"]),
+        ("HRA", emp["hra"]),
+        ("DA", emp["da"]),
+        ("CCA", emp["cca"]),
+        ("IR", emp["ir"]),
+        ("MA", emp["ma"]),
+        ("Special Allowance", emp["special_allowance"]),
+    ]
+
+    deductions = [
+        ("PF", emp["pf"]),
+        ("ESI", emp["esi"]),
+        ("Professional Tax", emp["professional_tax"]),
+        ("Insurance", emp["insurance"]),
+    ]
+
+    rows = max(len(earnings), len(deductions))
+
+    for i in range(rows):
+        if i < len(earnings):
+            pdf.cell(60, 8, earnings[i][0], 1)
+            pdf.cell(35, 8, f"{earnings[i][1]:.2f}", 1)
+        else:
+            pdf.cell(95, 8, "", 1)
+
+        if i < len(deductions):
+            pdf.cell(60, 8, deductions[i][0], 1)
+            pdf.cell(35, 8, f"{deductions[i][1]:.2f}", 1)
+        else:
+            pdf.cell(95, 8, "", 1)
+
+        pdf.ln()
+
+    gross = sum(e[1] for e in earnings)
+    total_ded = sum(d[1] for d in deductions)
+
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(60, 8, "GROSS EARNINGS", 1)
+    pdf.cell(35, 8, f"{gross:.2f}", 1)
+    pdf.cell(60, 8, "TOTAL DEDUCTIONS", 1)
+    pdf.cell(35, 8, f"{total_ded:.2f}", 1, ln=True)
+
+    pdf.ln(4)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(
+        0,
+        10,
+        f"NET SALARY : Rs. {emp['net_salary']:.2f}",
+        1,
+        ln=True,
+        align="C",
+    )
+
+    pdf.ln(8)
+    pdf.set_font("Arial", "I", 9)
+    pdf.cell(
+        0,
+        6,
+        "This is a computer generated payslip. Signature not required.",
+        ln=True,
+        align="C",
+    )
+
 @app.route("/send_payslip/<staff_code>")
 def send_payslip(staff_code):
     cursor = db.cursor(dictionary=True)
@@ -935,55 +1099,42 @@ def send_payslip(staff_code):
     if not emp:
         return "Employee not found", 404
 
-    # Generate PDF (reuse preview logic or separate function)
     pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=11)
-
-    pdf.cell(200, 10, "PAYSLIP", ln=True, align="C")
-    pdf.ln(5)
-    pdf.cell(200, 8, f"Staff Code : {emp['staff_code']}", ln=True)
-    pdf.cell(200, 8, f"Name       : {emp['name']}", ln=True)
-    pdf.cell(200, 8, f"Net Salary : Rs. {emp['net_salary']}", ln=True)
+    generate_payslip_page(emp, pdf)
 
     file_path = f"Payslip_{staff_code}.pdf"
     pdf.output(file_path)
 
     msg = Message(
-        subject="Your Monthly Payslip",
-        sender="mohammedyousuf432003@gmail.com",
-        recipients=[emp["email"]]
+        subject="Monthly Payslip",
+        sender=app.config["MAIL_USERNAME"],
+        recipients=[emp["email"]],
     )
+
     msg.body = f"""
-        Dear {emp['name']},
+            Dear {emp['name']},
 
-        Please find attached your payslip.
+            Please find attached your payslip.
 
-        Regards,
-        Payroll Team
-        """
+            Net Salary : Rs. {emp['net_salary']}
+
+            Regards,
+            Payroll Section
+            The New College
+            """
+
     with open(file_path, "rb") as f:
         msg.attach(file_path, "application/pdf", f.read())
 
     mail.send(msg)
-    return "Payslip sent successfully"
+    os.remove(file_path)
+
+    return "Payslip sent successfully ✅"
 
 @app.route("/preview_payslip_pdf/<staff_code>")
 def preview_payslip_pdf(staff_code):
     cursor = db.cursor(dictionary=True)
-    cursor.execute("""
-        SELECT
-            staff_code,
-            name,
-            department,
-            designation,
-            basic,
-            (hra + da + cca + ir + ma + special_allowance) AS allowance,
-            (esi + pf + professional_tax + insurance) AS deduction,
-            net_salary
-        FROM employees
-        WHERE staff_code=%s
-    """, (staff_code,))
+    cursor.execute("SELECT * FROM employees WHERE staff_code=%s", (staff_code,))
     emp = cursor.fetchone()
     cursor.close()
 
@@ -991,41 +1142,17 @@ def preview_payslip_pdf(staff_code):
         return "Employee not found", 404
 
     pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=11)
+    generate_payslip_page(emp, pdf)
 
-    pdf.cell(200, 10, "PAYSLIP", ln=True, align="C")
-    pdf.ln(5)
-    pdf.cell(200, 8, f"Staff Code : {emp['staff_code']}", ln=True)
-    pdf.cell(200, 8, f"Name       : {emp['name']}", ln=True)
-    pdf.cell(200, 8, f"Department : {emp['department']}", ln=True)
-    pdf.cell(200, 8, f"Designation: {emp['designation']}", ln=True)
+    file_path = f"Payslip_{staff_code}.pdf"
+    pdf.output(file_path)
 
-    pdf.ln(5)
-    pdf.cell(200, 8, f"Basic      : Rs. {emp['basic']}", ln=True)
-    pdf.cell(200, 8, f"Allowance  : Rs. {emp['allowance']}", ln=True)
-    pdf.cell(200, 8, f"Deduction  : Rs. {emp['deduction']}", ln=True)
-    pdf.ln(3)
-    pdf.cell(200, 10, f"NET SALARY : Rs. {emp['net_salary']}", ln=True)
-
-    file_name = f"Payslip_{staff_code}.pdf"
-    pdf.output(file_name)
-
-    return send_file(file_name, mimetype="application/pdf", as_attachment=False)
+    return send_file(file_path, mimetype="application/pdf", as_attachment=False)
 
 @app.route("/download_all_payslips")
 def download_all_payslips():
     cursor = db.cursor(dictionary=True)
-
-    cursor.execute("""
-        SELECT
-            staff_code, name, department, designation,
-            basic,
-            (hra + da + cca + ir + ma + special_allowance) AS allowance,
-            (esi + pf + professional_tax + insurance) AS deduction,
-            net_salary
-        FROM employees
-    """)
+    cursor.execute("SELECT * FROM employees")
     employees = cursor.fetchall()
     cursor.close()
 
@@ -1033,72 +1160,15 @@ def download_all_payslips():
         return "No employees found", 404
 
     pdf = FPDF()
-    pdf.set_font("Arial", size=11)
+    pdf.set_auto_page_break(auto=True, margin=15)
 
     for emp in employees:
-        pdf.add_page()
-
-        pdf.cell(200, 10, "PAYSLIP", ln=True, align="C")
-        pdf.ln(5)
-
-        pdf.cell(200, 8, f"Staff Code : {emp['staff_code']}", ln=True)
-        pdf.cell(200, 8, f"Name       : {emp['name']}", ln=True)
-        pdf.cell(200, 8, f"Department : {emp['department']}", ln=True)
-        pdf.cell(200, 8, f"Designation: {emp['designation']}", ln=True)
-
-        pdf.ln(5)
-        pdf.cell(200, 8, f"Basic      : Rs. {emp['basic']}", ln=True)
-        pdf.cell(200, 8, f"Allowance  : Rs. {emp['allowance']}", ln=True)
-        pdf.cell(200, 8, f"Deduction  : Rs. {emp['deduction']}", ln=True)
-
-        pdf.ln(3)
-        pdf.cell(200, 10, f"NET SALARY : Rs. {emp['net_salary']}", ln=True)
+        generate_payslip_page(emp, pdf)
 
     file_name = "All_Employees_Payslips.pdf"
     pdf.output(file_name)
 
     return send_file(file_name, as_attachment=True)
-
-# @app.route("/send_bulk_payslips", methods=["POST"])
-# def send_bulk_payslips():
-#     try:
-#         cursor = db.cursor(dictionary=True)
-#         cursor.execute("""
-#             SELECT staff_code, name, email, net_salary
-#             FROM employees
-#             WHERE email IS NOT NULL
-#         """)
-#         employees = cursor.fetchall()
-#         cursor.close()
-
-#         if not employees:
-#             return jsonify({"message": "No employees with email"}), 400
-
-#         for emp in employees:
-#             msg = Message(
-#                 subject="Monthly Payslip",
-#                 sender=app.config["MAIL_USERNAME"],
-#                 recipients=[emp["email"]]
-#             )
-
-#             msg.body = f"""
-#                 Dear {emp['name']},
-
-#                 Your monthly payslip has been generated.
-
-#                 Net Salary : Rs. {emp['net_salary']}
-
-#                 Regards,
-#                 Payroll Team
-#                             """
-
-#             mail.send(msg)
-
-#         return jsonify({"message": "Payslips sent to all employees successfully ✅"})
-
-#     except Exception as e:
-#         print("MAIL ERROR:", e)
-#         return jsonify({"message": str(e)}), 500
 
 @app.route("/send_bulk_payslips", methods=["POST"])
 def send_bulk_payslips():
@@ -1166,32 +1236,112 @@ def send_bulk_payslips():
         print("MAIL ERROR:", e)
         return jsonify({"message": str(e)}), 500
 
-
 def create_payslip_pdf(emp):
-    folder = "temp_payslips"
+    folder = "Payslips"
     os.makedirs(folder, exist_ok=True)
 
     file_path = f"{folder}/Payslip_{emp['staff_code']}.pdf"
 
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", size=11)
+    pdf.set_auto_page_break(auto=True, margin=15)
 
-    pdf.cell(200, 10, "PAYSLIP", ln=True, align="C")
-    pdf.ln(5)
+    # -------- LOGO --------
+    pdf.image("static/logo.png", x=10, y=8, w=25)
 
-    pdf.cell(200, 8, f"Staff Code : {emp['staff_code']}", ln=True)
-    pdf.cell(200, 8, f"Name       : {emp['name']}", ln=True)
-    pdf.cell(200, 8, f"Department : {emp['department']}", ln=True)
-    pdf.cell(200, 8, f"Designation: {emp['designation']}", ln=True)
+    # -------- HEADER --------
+    pdf.set_font("Arial", "B", 14)
+    pdf.cell(0, 8, "THE NEW COLLEGE (AUTONOMOUS)", ln=True, align="C")
+    pdf.set_font("Arial", "", 11)
+    pdf.cell(0, 6, "Royapettah, Chennai – 600014", ln=True, align="C")
 
-    pdf.ln(5)
-    pdf.cell(200, 8, f"Basic      : Rs. {emp['basic']}", ln=True)
-    pdf.cell(200, 8, f"Allowance  : Rs. {emp['allowance']}", ln=True)
-    pdf.cell(200, 8, f"Deduction  : Rs. {emp['deduction']}", ln=True)
-
+    month_year = datetime.now().strftime("%B %Y")
     pdf.ln(3)
-    pdf.cell(200, 10, f"NET SALARY : Rs. {emp['net_salary']}", ln=True)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 8, f"PAYSLIP – {month_year}", ln=True, align="C")
+
+    pdf.ln(5)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(5)
+
+    # -------- EMPLOYEE DETAILS --------
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(40, 8, "Staff Code")
+    pdf.cell(60, 8, f": {emp['staff_code']}")
+    pdf.cell(40, 8, "Department")
+    pdf.cell(0, 8, f": {emp['department']}", ln=True)
+
+    pdf.cell(40, 8, "Name")
+    pdf.cell(60, 8, f": {emp['name']}")
+    pdf.cell(40, 8, "Designation")
+    pdf.cell(0, 8, f": {emp['designation']}", ln=True)
+
+    pdf.ln(5)
+
+    # -------- TABLE HEADER --------
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(95, 8, "EARNINGS", border=1, align="C")
+    pdf.cell(95, 8, "DEDUCTIONS", border=1, align="C", ln=True)
+
+    pdf.set_font("Arial", "", 10)
+
+    earnings = [
+        ("Basic Pay", emp["basic"]),
+        ("HRA", emp["hra"]),
+        ("DA", emp["da"]),
+        ("CCA", emp["cca"]),
+        ("IR", emp["ir"]),
+        ("Medical Allowance", emp["ma"]),
+        ("Special Allowance", emp["special_allowance"]),
+    ]
+
+    deductions = [
+        ("PF", emp["pf"]),
+        ("ESI", emp["esi"]),
+        ("Professional Tax", emp["professional_tax"]),
+        ("Insurance", emp["insurance"]),
+    ]
+
+    max_rows = max(len(earnings), len(deductions))
+
+    for i in range(max_rows):
+        # Earnings
+        if i < len(earnings):
+            pdf.cell(60, 8, earnings[i][0], border=1)
+            pdf.cell(35, 8, f"{earnings[i][1]:.2f}", border=1)
+        else:
+            pdf.cell(95, 8, "", border=1)
+
+        # Deductions
+        if i < len(deductions):
+            pdf.cell(60, 8, deductions[i][0], border=1)
+            pdf.cell(35, 8, f"{deductions[i][1]:.2f}", border=1)
+        else:
+            pdf.cell(95, 8, "", border=1)
+
+        pdf.ln()
+
+    pdf.set_font("Arial", "B", 10)
+
+    # -------- TOTALS --------
+    gross = emp["basic"] + emp["allowance"]
+    total_deductions = emp["deduction"]
+
+    pdf.cell(60, 8, "GROSS EARNINGS", border=1)
+    pdf.cell(35, 8, f"{gross:.2f}", border=1)
+    pdf.cell(60, 8, "TOTAL DEDUCTIONS", border=1)
+    pdf.cell(35, 8, f"{total_deductions:.2f}", border=1, ln=True)
+
+    pdf.ln(4)
+
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, f"NET SALARY : Rs. {emp['net_salary']:.2f}", border=1, ln=True, align="C")
+
+    pdf.ln(10)
+
+    # -------- FOOTER --------
+    pdf.set_font("Arial", "I", 9)
+    pdf.cell(0, 6, "This is a computer generated payslip. Signature not required.", ln=True, align="C")
 
     pdf.output(file_path)
 

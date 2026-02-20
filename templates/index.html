@@ -32,6 +32,14 @@
 
       <!-- Right Content -->
       <div class="content">
+        <div id="toast-container">
+          {% with messages = get_flashed_messages(with_categories=true) %} {% if
+          messages %} {% for category, message in messages %}
+          <div class="toast {{ category }}">{{ message }}</div>
+          <!-- <p class="flash {{ category }}">{{ message }}</p> -->
+          {% endfor %} {% endif %} {% endwith %}
+        </div>
+
         <!-- VIEW EMPLOYEE -->
         <div id="view" class="section active">
           <div class="header">
@@ -1260,3 +1268,179 @@
     </script>
   </body>
 </html>
+<!-- 
+
+def generate_payslip_page(emp, pdf):
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+
+    # LOGO
+    pdf.image("static/logo.png", x=10, y=8, w=25)
+
+    # HEADER
+    pdf.set_font("Arial", "B", 14)
+    pdf.cell(0, 8, "THE NEW COLLEGE (AUTONOMOUS)", ln=True, align="C")
+    pdf.set_font("Arial", "", 11)
+    pdf.cell(0, 6, "Royapettah, Chennai – 600014", ln=True, align="C")
+
+    month_year = datetime.now().strftime("%B %Y")
+    pdf.ln(3)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 8, f"PAYSLIP – {month_year}", ln=True, align="C")
+
+    pdf.ln(5)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(5)
+
+    # EMPLOYEE DETAILS
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(40, 8, "Staff Code")
+    pdf.cell(60, 8, f": {emp['staff_code']}")
+    pdf.cell(40, 8, "Department")
+    pdf.cell(0, 8, f": {emp['department']}", ln=True)
+
+    pdf.cell(40, 8, "Name")
+    pdf.cell(60, 8, f": {emp['name']}")
+    pdf.cell(40, 8, "Designation")
+    pdf.cell(0, 8, f": {emp['designation']}", ln=True)
+
+    pdf.ln(5)
+
+    # TABLE HEADER
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(95, 8, "EARNINGS", 1, 0, "C")
+    pdf.cell(95, 8, "DEDUCTIONS", 1, 1, "C")
+
+    pdf.set_font("Arial", "", 10)
+
+    earnings = [
+        ("Basic", emp["basic"]),
+        ("HRA", emp["hra"]),
+        ("DA", emp["da"]),
+        ("CCA", emp["cca"]),
+        ("IR", emp["ir"]),
+        ("MA", emp["ma"]),
+        ("Special Allowance", emp["special_allowance"]),
+    ]
+
+    deductions = [
+        ("PF", emp["pf"]),
+        ("ESI", emp["esi"]),
+        ("Professional Tax", emp["professional_tax"]),
+        ("Insurance", emp["insurance"]),
+    ]
+
+    rows = max(len(earnings), len(deductions))
+
+    for i in range(rows):
+        if i < len(earnings):
+            pdf.cell(60, 8, earnings[i][0], 1)
+            pdf.cell(35, 8, f"{earnings[i][1]:.2f}", 1)
+        else:
+            pdf.cell(95, 8, "", 1)
+
+        if i < len(deductions):
+            pdf.cell(60, 8, deductions[i][0], 1)
+            pdf.cell(35, 8, f"{deductions[i][1]:.2f}", 1)
+        else:
+            pdf.cell(95, 8, "", 1)
+
+        pdf.ln()
+
+    gross = sum(e[1] for e in earnings)
+    total_ded = sum(d[1] for d in deductions)
+
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(60, 8, "GROSS EARNINGS", 1)
+    pdf.cell(35, 8, f"{gross:.2f}", 1)
+    pdf.cell(60, 8, "TOTAL DEDUCTIONS", 1)
+    pdf.cell(35, 8, f"{total_ded:.2f}", 1, ln=True)
+
+    pdf.ln(4)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, f"NET SALARY : Rs. {emp['net_salary']:.2f}", 1, ln=True, align="C")
+
+    pdf.ln(8)
+    pdf.set_font("Arial", "I", 9)
+    pdf.cell(0, 6, "This is a computer generated payslip.", ln=True, align="C")
+
+@app.route("/preview_payslip_pdf/<staff_code>")
+def preview_payslip_pdf(staff_code):
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM employees WHERE staff_code=%s", (staff_code,))
+    emp = cursor.fetchone()
+    cursor.close()
+
+    if not emp:
+        return "Employee not found", 404
+
+    pdf = FPDF()
+    generate_payslip_page(emp, pdf)
+
+    file_path = f"Payslip_{staff_code}.pdf"
+    pdf.output(file_path)
+
+    return send_file(file_path, mimetype="application/pdf", as_attachment=False)
+
+@app.route("/download_all_payslips")
+def download_all_payslips():
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM employees")
+    employees = cursor.fetchall()
+    cursor.close()
+
+    if not employees:
+        return "No employees found", 404
+
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+
+    for emp in employees:
+        generate_payslip_page(emp, pdf)
+
+    file_name = "All_Employees_Payslips.pdf"
+    pdf.output(file_name)
+
+    return send_file(file_name, as_attachment=True)
+
+@app.route("/send_payslip/<staff_code>")
+def send_payslip(staff_code):
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM employees WHERE staff_code=%s", (staff_code,))
+    emp = cursor.fetchone()
+    cursor.close()
+
+    if not emp:
+        return "Employee not found", 404
+
+    pdf = FPDF()
+    generate_payslip_page(emp, pdf)
+
+    file_path = f"Payslip_{staff_code}.pdf"
+    pdf.output(file_path)
+
+    msg = Message(
+        subject="Monthly Payslip",
+        sender=app.config["MAIL_USERNAME"],
+        recipients=[emp["email"]],
+    )
+
+    msg.body = f"""
+        Dear {emp['name']},
+
+        Please find attached your payslip.
+
+        Net Salary : Rs. {emp['net_salary']}
+
+        Regards,
+        Payroll Section
+        The New College
+        """
+
+    with open(file_path, "rb") as f:
+        msg.attach(file_path, "application/pdf", f.read())
+
+    mail.send(msg)
+    os.remove(file_path)
+
+    return "Payslip sent successfully ✅" -->

@@ -173,3 +173,63 @@ p {
 .flash.error {
   color: red;
 }
+
+/* -------------------------- */
+
+
+/* Toast container (right side) */
+#toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+}
+
+/* Toast base */
+.toast {
+  min-width: 260px;
+  margin-bottom: 12px;
+  padding: 20px 40px;
+  color: #fff;
+  border-radius: 6px;
+  font-size: 14px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  animation: slideIn 0.4s ease, fadeOut 0.5s ease 4.5s forwards;
+}
+
+/* Categories (Flask flash types) */
+.toast.success {
+  background-color: #2ecc71;
+}
+
+.toast.error {
+  background-color: #e74c3c;
+}
+
+.toast.warning {
+  background-color: #f39c12;
+}
+
+.toast.info {
+  background-color: #3498db;
+}
+
+/* Animations */
+@keyframes slideIn {
+  from {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    transform: translateX(120%);
+  }
+}
+
