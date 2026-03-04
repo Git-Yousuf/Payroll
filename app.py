@@ -422,6 +422,8 @@ def update_employee_modal():
             department=%s,
             designation=%s,
             category=%s,
+            phone=%s,
+            email=%s,
             aadhar=%s,
             pan=%s,
             bank_account=%s,
@@ -446,7 +448,7 @@ def update_employee_modal():
             nta=%s
         WHERE staff_code=%s
     """, (
-        d["name"], d["department"], d["designation"], d["category"],
+        d["name"], d["department"], d["designation"], d["category"], d["phone"], d["email"],
         d["aadhar"], d["pan"], d["bank_account"], d["pf_account"],
         d["basic"], d["hra"], d["da"], d["cca"], d["ir"], d["ma"], d["special_allowance"],
         d["esi"], d["insurance"], d["pf"], d["professional_tax"],
@@ -1016,6 +1018,9 @@ def generate_payslip_page(emp, pdf):
     pdf.cell(40, 8, "Designation")
     pdf.cell(0, 8, f": {emp['designation']}", ln=True)
 
+    pdf.cell(40, 8, "Basic Pay")
+    pdf.cell(0, 8, f": {emp['basic']}", ln=True)
+
     pdf.ln(5)
 
     # TABLE HEADER
@@ -1026,18 +1031,23 @@ def generate_payslip_page(emp, pdf):
     pdf.set_font("Arial", "", 10)
 
     earnings = [
-        ("Basic", emp["basic"]),
         ("HRA", emp["hra"]),
         ("DA", emp["da"]),
         ("CCA", emp["cca"]),
         ("IR", emp["ir"]),
-        ("MA", emp["ma"]),
+        ("Medical Allowance", emp["ma"]),
         ("Special Allowance", emp["special_allowance"]),
     ]
 
     deductions = [
         ("PF", emp["pf"]),
         ("ESI", emp["esi"]),
+        ("Teachers Guild", emp["teachers_guild"]),
+        ("NTSW", emp["ntsw"]),
+        ("ICRS", emp["icrs"]),
+        ("NCSWP", emp["ncswp"]),
+        ("LOP", emp["lop"]),
+        ("NTA", emp["nta"]),
         ("Professional Tax", emp["professional_tax"]),
         ("Insurance", emp["insurance"]),
     ]
@@ -1049,17 +1059,17 @@ def generate_payslip_page(emp, pdf):
             pdf.cell(60, 8, earnings[i][0], 1)
             pdf.cell(35, 8, f"{earnings[i][1]:.2f}", 1)
         else:
-            pdf.cell(95, 8, "", 1)
+            pdf.cell(95, 8, "")
 
         if i < len(deductions):
             pdf.cell(60, 8, deductions[i][0], 1)
             pdf.cell(35, 8, f"{deductions[i][1]:.2f}", 1)
         else:
-            pdf.cell(95, 8, "", 1)
+            pdf.cell(95, 8, "")
 
         pdf.ln()
 
-    gross = sum(e[1] for e in earnings)
+    gross = sum(e[1] for e in earnings)+emp['basic']
     total_ded = sum(d[1] for d in deductions)
 
     pdf.set_font("Arial", "B", 10)
@@ -1182,8 +1192,24 @@ def send_bulk_payslips():
                 department,
                 designation,
                 basic,
+                hra,
+                da,
+                cca,
+                ir,
+                ma,
+                special_allowance,
+                esi,
+                pf,
+                professional_tax,
+                teachers_guild,
+                ntsw,
+                icrs,
+                ncswp,
+                lop,
+                nta,
+                insurance,
                 (hra + da + cca + ir + ma + special_allowance) AS allowance,
-                (esi + pf + professional_tax + insurance) AS deduction,
+                (esi + pf + professional_tax + insurance + teachers_guild + ntsw + icrs + ncswp + lop + nta) AS deduction,
                 net_salary
             FROM employees
             WHERE email IS NOT NULL
@@ -1253,12 +1279,12 @@ def create_payslip_pdf(emp):
     pdf.set_font("Arial", "B", 14)
     pdf.cell(0, 8, "THE NEW COLLEGE (AUTONOMOUS)", ln=True, align="C")
     pdf.set_font("Arial", "", 11)
-    pdf.cell(0, 6, "Royapettah, Chennai – 600014", ln=True, align="C")
+    pdf.cell(0, 6, "Royapettah, Chennai - 600014", ln=True, align="C")
 
     month_year = datetime.now().strftime("%B %Y")
     pdf.ln(3)
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 8, f"PAYSLIP – {month_year}", ln=True, align="C")
+    pdf.cell(0, 8, f"PAYSLIP - {month_year}", ln=True, align="C")
 
     pdf.ln(5)
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
@@ -1276,6 +1302,9 @@ def create_payslip_pdf(emp):
     pdf.cell(40, 8, "Designation")
     pdf.cell(0, 8, f": {emp['designation']}", ln=True)
 
+    pdf.cell(40, 8, "Basic Pay")
+    pdf.cell(0, 8, f": {emp['basic']}", ln=True)
+
     pdf.ln(5)
 
     # -------- TABLE HEADER --------
@@ -1286,8 +1315,7 @@ def create_payslip_pdf(emp):
     pdf.set_font("Arial", "", 10)
 
     earnings = [
-        ("Basic Pay", emp["basic"]),
-        ("HRA", emp["hra"]),
+        ("HRA", emp['hra']),
         ("DA", emp["da"]),
         ("CCA", emp["cca"]),
         ("IR", emp["ir"]),
@@ -1298,6 +1326,12 @@ def create_payslip_pdf(emp):
     deductions = [
         ("PF", emp["pf"]),
         ("ESI", emp["esi"]),
+        ("Teachers Guild", emp["teachers_guild"]),
+        ("NTSW", emp["ntsw"]),
+        ("ICRS", emp["icrs"]),
+        ("NCSWP", emp["ncswp"]),
+        ("LOP", emp["lop"]),
+        ("NTA", emp["nta"]),
         ("Professional Tax", emp["professional_tax"]),
         ("Insurance", emp["insurance"]),
     ]
@@ -1310,14 +1344,14 @@ def create_payslip_pdf(emp):
             pdf.cell(60, 8, earnings[i][0], border=1)
             pdf.cell(35, 8, f"{earnings[i][1]:.2f}", border=1)
         else:
-            pdf.cell(95, 8, "", border=1)
+            pdf.cell(95, 8, "")
 
         # Deductions
         if i < len(deductions):
             pdf.cell(60, 8, deductions[i][0], border=1)
             pdf.cell(35, 8, f"{deductions[i][1]:.2f}", border=1)
         else:
-            pdf.cell(95, 8, "", border=1)
+            pdf.cell(95, 8, "")
 
         pdf.ln()
 
@@ -1346,7 +1380,6 @@ def create_payslip_pdf(emp):
     pdf.output(file_path)
 
     return file_path
-
 
 if __name__ == "__main__":
     app.run(debug=True)

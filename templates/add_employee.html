@@ -190,11 +190,11 @@
           <div class="grid">
             <div>
               <label>Aadhar</label>
-              <input name="aadhar" value="Nil" />
+              <input name="aadhar" placeholder="Aadhar" />
             </div>
             <div>
               <label>PAN</label>
-              <input name="pan" value="Nil" />
+              <input name="pan" placeholder="PAN" />
             </div>
           </div>
         </div>
@@ -587,10 +587,24 @@
           return false;
         }
 
-        // Date of Join
+        // Date of Birth
         const dob = document.getElementById("dob").value;
         if (dob === "") {
           alert("❌ Enter Date of Birth");
+          return false;
+        }
+
+        // Aadhaar Card
+        const aadhar = document.getElementById("aadhar").value;
+        if (aadhar === "") {
+          alert("❌ Enter Aadhar");
+          return false;
+        }
+
+        // PAN
+        const pan = document.getElementById("pan").value;
+        if (pan === "") {
+          alert("❌ Enter PAN");
           return false;
         }
 
